@@ -7,14 +7,18 @@ http://euee.web.fc2.com/tool/nd.html
 
 """
 
+
 import os
 # TODO: Use subprocess instead of os.system to check the output and see if it worked.
+
+# NDC.EXE is in the same directory as disk.py.
+NDC_PATH = os.path.abspath(__file__) 
 
 class Disk:
     def __init__(self, filename):
         self.filename = filename
         self.extension = filename.split('.')[-1]
-        self.path = os.path.abspath(os.path.join(filename, os.pardir))
+        self.abspath = os.path.abspath(os.path.join(filename, os.pardir))
 
 
     def extract(self, filename):
@@ -23,7 +27,12 @@ class Disk:
         os.system(cmd)
 
     def insert(self, filename, path_in_disk=None):
+        #filename_path = os.path.join(self.abspath, filename)
+        #filename_rel_path = os.path.relpath(filename_path, NDC_PATH)
+        #print filename_rel_path
+
         del_cmd = 'ndc D %s 0' % (self.filename)
+
         if path_in_disk:
             del_cmd += ' ' + os.path.join(path_in_disk, filename)
         else:
