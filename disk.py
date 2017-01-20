@@ -10,40 +10,57 @@ http://euee.web.fc2.com/tool/nd.html
 
 import os
 # TODO: Use subprocess instead of os.system to check the output and see if it worked.
+from shutil import copyfile
 
-# NDC.EXE is in the same directory as disk.py.
 NDC_PATH = os.path.abspath(__file__) 
+
+SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk', 'vfd', 'vhd',
+                          'hdd', 'img', 'd88', 'tfd', 'thd', 'nfd', 'nhd', 'h0', 'h1',
+                          'h2', 'h3', 'h4', 'hdm']
+# (hdm requires conversion to flp, but )
 
 class Disk:
     def __init__(self, filename):
         self.filename = filename
-        self.extension = filename.split('.')[-1]
+        self.extension = filename.split('.')[-1].lower()
+        assert self.extension in SUPPORTED_FILE_FORMATS # TODO use an exception
+
+        self.original_extension = self.extension
         self.abspath = os.path.abspath(os.path.join(filename, os.pardir))
 
+        if self.extension == 'hdm':
+            new_disk_filename = self.filename.split('.')[0] + '.flp'
+            copyfile(self.filename, new_disk_filename)
+            self.filename = new_disk_filename
 
-    def extract(self, filename):
+
+    def extract(self, filename, path_in_disk=None):
+        # TODO: Add path_in_disk support.
+
         cmd = 'ndc G %s 0 %s .' % (self.filename, filename)
-        print cmd
         os.system(cmd)
 
-    def insert(self, filename, path_in_disk=None):
-        #filename_path = os.path.join(self.abspath, filename)
-        #filename_rel_path = os.path.relpath(filename_path, NDC_PATH)
-        #print filename_rel_path
-
+    def delete(self, filename, path_in_disk=None):
         del_cmd = 'ndc D %s 0' % (self.filename)
-
         if path_in_disk:
             del_cmd += ' ' + os.path.join(path_in_disk, filename)
         else:
             del_cmd += ' ' + filename
         os.system(del_cmd)
 
+    def insert(self, filename, path_in_disk=None):
+        # First, delete the original file in the disk if applicable.
+        # (TODO: this may not be necessary?? check it agian)
+        self.delete(filename, path_in_disk)
+
         cmd = 'ndc P %s 0 %s' % (self.filename, filename)
         if path_in_disk:
             cmd += ' ' + path_in_disk
-        print cmd
         os.system(cmd)
+
+        if self.original_extension == 'hdm':
+            original_disk_filename = self.filename.split('.')[0] + '.hdm'
+            copyfile(self.filename, original_disk_filename)
 
 """
 kuoushi's note:
@@ -69,5 +86,9 @@ kuoushi's note:
 """
 
 if __name__ == '__main__':
-    EVODisk = Disk('46OM.hdi')
-    EVODisk.insert('windhex.cfg')
+    #EVODisk = Disk('46OM.hdi')
+    #EVODisk.insert('windhex.cfg')
+
+    EVOHDM = Disk('EVO.hdm')
+    EVOHDM.insert('AV300.GDT')
+    EVOHDM.extract('AV300.GDT')
