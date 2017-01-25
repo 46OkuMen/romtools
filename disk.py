@@ -16,8 +16,8 @@ NDC_PATH = os.path.abspath(__file__)
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk', 'vfd', 'vhd',
                           'hdd', 'img', 'd88', 'tfd', 'thd', 'nfd', 'nhd', 'h0', 'h1',
-                          'h2', 'h3', 'h4', 'hdm']
-# (hdm requires conversion to flp, but )
+                          'h2', 'h3', 'h4', 'hdm', 'slh']
+# (hdm requires conversion to flp, but that conersion gets done below)
 
 class Disk:
     def __init__(self, filename):
