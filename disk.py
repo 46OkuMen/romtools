@@ -45,13 +45,14 @@ class Disk:
     def extract(self, filename, path_in_disk=None):
         # TODO: Add path_in_disk support.
 
-        cmd = 'ndc G %s 0 %s .' % (self.filename, filename)
+        cmd = 'ndc G "%s" 0 %s .' % (self.filename, filename)
+        print cmd
         os.system(cmd)
 
-        return Gamefile(self, filename)
+        return Gamefile(filename, self)
 
     def delete(self, filename, path_in_disk=None):
-        del_cmd = 'ndc D %s 0' % (self.filename)
+        del_cmd = 'ndc D "%s" 0' % (self.filename)
         if path_in_disk:
             del_cmd += ' ' + os.path.join(path_in_disk, filename)
         else:
@@ -63,7 +64,7 @@ class Disk:
         # (TODO: this may not be necessary?? check it agian)
         self.delete(filename, path_in_disk)
 
-        cmd = 'ndc P %s 0 %s' % (self.filename, filename)
+        cmd = 'ndc P "%s" 0 %s' % (self.filename, filename)
         if path_in_disk:
             cmd += ' ' + path_in_disk
         os.system(cmd)
@@ -76,13 +77,15 @@ class Disk:
         return self.filename
 
 class Gamefile(object):
-    def __init__(self, disk, dest_disk, filename):
+    def __init__(self, filename, disk, dest_disk=None, pointer_constant=None):
         self.filename = filename
         self.disk = disk
         self.dest_disk = dest_disk
 
         self.original_filestring = file_to_string(filename)
         self.filestring = "" + self.original_filestring
+
+        self.pointer_constant = pointer_constant
 
     #def incorporate(self):
     #    """Add the edited file to the Disk in the original's place."""

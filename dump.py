@@ -56,6 +56,22 @@ class Translation(object):
         return self.english
 
 
+class BorlandPointer(object):
+    """Two-byte, little-endian pointer with a constant added to retrieve location."""
+    def __init__(self, gamefile, pointer_locations, text_location):
+        self.gamefile = gamefile
+        self.constant = self.gamefile.pointer_constant
+        self.pointer_locations = pointer_locations
+        self.text_location = text_location
+
+    def text(self):
+        pass
+
+    def edit(self, diff):
+        pass
+
+
+
 class DumpExcel(object):
     """
     Takes a dump excel path, and lets you get a block's translations from it.
@@ -91,3 +107,11 @@ class DumpExcel(object):
 
                 trans.append(Translation(block, offset, japanese, english))
         return trans
+
+class PointerExcel(object):
+    def __init__(self, path):
+        self.path = path
+        self.workbook = load_workbook(self.path)
+
+    def get_pointers(self, block):
+        pass
