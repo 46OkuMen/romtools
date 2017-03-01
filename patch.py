@@ -23,3 +23,5 @@ class Patch:
 if __name__ == '__main__':
 	EVOPatch = Patch('EVO-Original.hdi', 'EVO-Patched.hdi')
 	EVOPatch.create('patch.xdelta')
+
+# TODO: Use subprocess.Popen to capture output and such.
