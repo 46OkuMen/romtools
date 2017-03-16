@@ -5,19 +5,20 @@ so we have to use a rather obscure Japanese utility called NDC.exe, found here:
 
 http://euee.web.fc2.com/tool/nd.html
 
+(Currently using an unofficial English translation by kuoushi)
+
 """
 
 import os
+import shutil
 # TODO: Use subprocess instead of os.system to check the output and see if it worked.
-from shutil import copyfile
 from romtools.lzss import compress
 
 NDC_PATH = os.path.abspath(__file__) 
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk', 'vfd', 'vhd',
                           'hdd', 'img', 'd88', 'tfd', 'thd', 'nfd', 'nhd', 'h0', 'h1',
-                          'h2', 'h3', 'h4', 'hdm', 'slh']
-# (hdm requires conversion to flp, but that conersion gets done below)
+                          'h2', 'h3', 'h4', 'slh']
 
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
@@ -39,14 +40,12 @@ class Disk:
         self.original_extension = self.extension
         self.dir = os.path.abspath(os.path.join(filename, os.pardir))
 
-        if self.extension == 'hdm':
-            new_disk_filename = self.filename.split('.')[0] + '.flp'
-            copyfile(self.filename, new_disk_filename)
-            self.filename = new_disk_filename
-
+        #self._backup_filename = 'totally different filename.hdi'
+        self._backup_filename = '/'.join(self.filename.split('/')[:-1]) + '_backup.'.join((self.filename.split('/')[-1].split('.')))
 
     def extract(self, filename, path_in_disk=None):
         # TODO: Add path_in_disk support.
+        # TODO: Add lzss decompress support.
 
         cmd = 'ndc G "%s" 0 %s %s' % (self.filename, filename, self.dir)
         print cmd
@@ -74,9 +73,12 @@ class Disk:
         print cmd
         os.system(cmd)
 
-        if self.original_extension == 'hdm':
-            original_disk_filename = self.filename.split('.')[0] + '.hdm'
-            copyfile(self.filename, original_disk_filename)
+    def backup(self):
+        shutil.copyfile(self.filename, self._backup_filename)
+
+    def restore_from_backup(self):
+        shutil.copyfile(self._backup_filename, self.filename)
+        os.remove(self._backup_filename)
 
     def __repr__(self):
         return self.filename
@@ -107,6 +109,7 @@ class Gamefile(object):
             compressed_path = compress(dest_path)
             print compressed_path
             dest_path = compressed_path
+
         print "inserting:", dest_path
         self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
