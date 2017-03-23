@@ -9,16 +9,23 @@ http://euee.web.fc2.com/tool/nd.html
 
 """
 
-import os
-import shutil
-# TODO: Use subprocess instead of os.system to check the output and see if it worked.
+from os import path, pardir, remove
+from shutil import copyfile
+from subprocess import check_output, CalledProcessError
 from romtools.lzss import compress
 
-NDC_PATH = os.path.abspath(__file__) 
+NDC_PATH = path.abspath(__file__) 
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk', 'vfd', 'vhd',
                           'hdd', 'img', 'd88', 'tfd', 'thd', 'nfd', 'nhd', 'h0', 'h1',
                           'h2', 'h3', 'h4', 'slh']
+
+HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
+# HDI: anex86
+# THD: T98
+# NHD: T98-Next
+# VHD: VirtualPC (created by euee)
+# SLH: SL9821
 
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
@@ -31,6 +38,10 @@ def file_to_string(file_path, start=0, length=0):
         else:
             return f.read()
 
+class FileNotFoundError(Exception):
+    def __init__(self, message, errors):
+        super(FileNotFoundError, self).__init__(message)
+
 class Disk:
     def __init__(self, filename):
         self.filename = filename
@@ -38,18 +49,26 @@ class Disk:
         assert self.extension in SUPPORTED_FILE_FORMATS # TODO use an exception
 
         self.original_extension = self.extension
-        self.dir = os.path.abspath(os.path.join(filename, os.pardir))
+        self.dir = path.abspath(path.join(filename, pardir))
 
-        #self._backup_filename = 'totally different filename.hdi'
-        self._backup_filename = '/'.join(self.filename.split('/')[:-1]) + '_backup.'.join((self.filename.split('/')[-1].split('.')))
+        self._backup_filename = '/'.join(self.filename.split('/')[:-1]) + '/' + '_backup.'.join((self.filename.split('/')[-1].split('.')))
 
-    def extract(self, filename, path_in_disk=None):
-        # TODO: Add path_in_disk support.
+    def extract(self, filename, path_in_disk=None, lzss=False):
         # TODO: Add lzss decompress support.
 
-        cmd = 'ndc G "%s" 0 %s %s' % (self.filename, filename, self.dir)
+        cmd = 'ndc G "%s" 0 ' % (self.filename)
+        if path_in_disk:
+            cmd += path.join(path_in_disk, filename)
+        else:
+            cmd += filename
+
+        cmd += ' ' + self.dir
         print cmd
-        os.system(cmd)
+        try:
+            result = check_output(cmd)
+        except CalledProcessError:
+            raise FileNotFoundError('File not found in disk', [])
+        #os.system(cmd)
 
         #return Gamefile(filename, self)
 
@@ -57,11 +76,12 @@ class Disk:
         filename_without_path = filename.split('\\')[-1]
         del_cmd = 'ndc D "%s" 0' % (self.filename)
         if path_in_disk:
-            del_cmd += ' ' + os.path.join(path_in_disk, filename_without_path)
+            del_cmd += ' ' + path.join(path_in_disk, filename_without_path)
         else:
             del_cmd += ' ' + filename_without_path
         print del_cmd
-        os.system(del_cmd)
+        result = check_output(del_cmd)
+        #os.system(del_cmd)
 
     def insert(self, filename, path_in_disk=None):
         # First, delete the original file in the disk if applicable.
@@ -71,14 +91,15 @@ class Disk:
         if path_in_disk:
             cmd += ' ' + path_in_disk
         print cmd
-        os.system(cmd)
+        result = check_output(cmd)
+        #os.system(cmd)
 
     def backup(self):
-        shutil.copyfile(self.filename, self._backup_filename)
+        copyfile(self.filename, self._backup_filename)
 
     def restore_from_backup(self):
-        shutil.copyfile(self._backup_filename, self.filename)
-        os.remove(self._backup_filename)
+        copyfile(self._backup_filename, self.filename)
+        remove(self._backup_filename)
 
     def __repr__(self):
         return self.filename
@@ -99,7 +120,7 @@ class Gamefile(object):
 
     def write(self, path_in_disk='.', compression=False):
         """Write the new data to an independent file for later inspection."""
-        dest_path = os.path.join(self.dest_disk.dir, self.filename)
+        dest_path = path.join(self.dest_disk.dir, self.filename)
 
         with open(dest_path, 'wb') as fileopen:
             fileopen.write(self.filestring)
