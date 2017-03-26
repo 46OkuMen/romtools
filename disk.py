@@ -30,7 +30,6 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
     # TODO: The default file path for this causes some real problems...
-    print file_path
     with open(file_path, 'rb') as f:
         f.seek(start)
         if length:
@@ -62,8 +61,9 @@ class Disk:
         else:
             cmd += filename
 
-        cmd += ' ' + self.dir
-        print cmd
+        cmd += ' "' + self.dir + '"'
+        #print cmd
+        # TODO: Problems with Shift JIS in directory names here
         try:
             result = check_output(cmd)
         except CalledProcessError:
@@ -76,23 +76,24 @@ class Disk:
         filename_without_path = filename.split('\\')[-1]
         del_cmd = 'ndc D "%s" 0' % (self.filename)
         if path_in_disk:
-            del_cmd += ' ' + path.join(path_in_disk, filename_without_path)
+            del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
         else:
-            del_cmd += ' ' + filename_without_path
-        print del_cmd
+            del_cmd += ' "' + filename_without_path  + '"'
+        #print del_cmd
         result = check_output(del_cmd)
-        #os.system(del_cmd)
 
-    def insert(self, filename, path_in_disk=None):
+    def insert(self, filepath, path_in_disk=None):
         # First, delete the original file in the disk if applicable.
+
+        filename = path.basename(filepath)
         self.delete(filename, path_in_disk)
 
-        cmd = 'ndc P "%s" 0 %s' % (self.filename, filename)
+
+        cmd = 'ndc P "%s" 0 %s' % (self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
-        print cmd
+        #print cmd
         result = check_output(cmd)
-        #os.system(cmd)
 
     def backup(self):
         copyfile(self.filename, self._backup_filename)

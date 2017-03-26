@@ -9,6 +9,7 @@ class PatchChecksumError(Exception):
         super(PatchChecksumError, self).__init__(message)
 
 class Patch:
+    # TODO: Abstract out the need for "edited" by just copying the original file.
     def __init__(self, original, edited, filename):
         self.original = original
         self.edited = edited
@@ -23,15 +24,14 @@ class Patch:
 
     def apply(self):
         print self.original, self.edited
-        copyfile(self.original, self.edited)
-        cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited)  # SOURCE OUT TARGET
+        cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
         print cmd
         try:
             result = check_output(cmd)
         except CalledProcessError:
             raise PatchChecksumError('Target file had incorrect checksum', [])
 
-
 if __name__ == '__main__':
-    EVOPatch = Patch('EVO-Original.hdi', 'EVO-Patched.hdi', 'EVOPatch.xdelta')
+    EVOPatch = Patch(
+        'EVO-Original.hdi', 'EVO-Patched.hdi', 'EVOPatch.xdelta')
     EVOPatch.create()
