@@ -6,10 +6,10 @@ so we have to use a rather obscure Japanese utility called NDC.exe, found here:
 http://euee.web.fc2.com/tool/nd.html
 
 (Currently using an unofficial English translation by kuoushi)
-
 """
 
-from os import path, pardir, remove
+from locale import getpreferredencoding
+from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from romtools.lzss import compress
@@ -41,8 +41,12 @@ class FileNotFoundError(Exception):
     def __init__(self, message, errors):
         super(FileNotFoundError, self).__init__(message)
 
+class UnicodePathError(Exception):
+    def __init__(self, message, errors):
+        super(UnicodePathError, self).__init__(message)
+
 class Disk:
-    def __init__(self, filename):
+    def __init__(self, filename, backup_folder=None):
         self.filename = filename
         self.extension = filename.split('.')[-1].lower()
         assert self.extension in SUPPORTED_FILE_FORMATS # TODO use an exception
@@ -50,9 +54,19 @@ class Disk:
         self.original_extension = self.extension
         self.dir = path.abspath(path.join(filename, pardir))
 
-        self._backup_filename = '/'.join(self.filename.split('/')[:-1]) + '/' + '_backup.'.join((self.filename.split('/')[-1].split('.')))
+        if backup_folder is None:
+            self._backup_filename = path.join(self.dir, 'backup', path.basename(self.filename))
+        else:
+            if not path.isdir(backup_folder):
+                mkdir(backup_folder)
+            self._backup_filename = path.join(backup_folder, path.basename(self.filename))
 
-    def extract(self, filename, path_in_disk=None, lzss=False):
+        #if not path.isdir(path.join(self.dir, 'backup')):
+        #    mkdir(path.join(self.dir, 'backup'))
+
+        print self._backup_filename
+
+    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
         cmd = 'ndc G "%s" 0 ' % (self.filename)
@@ -61,14 +75,17 @@ class Disk:
         else:
             cmd += filename
 
-        cmd += ' "' + self.dir + '"'
-        #print cmd
-        # TODO: Problems with Shift JIS in directory names here
+        if dest_path is None:
+            dest_path = self.dir
+
+        cmd += ' "' + dest_path + '"'
+        print cmd
         try:
             result = check_output(cmd)
         except CalledProcessError:
             raise FileNotFoundError('File not found in disk', [])
-        #os.system(cmd)
+        except UnicodeEncodeError:
+            raise UnicodePathError("Non-Latin characters in path", [])
 
         #return Gamefile(filename, self)
 
@@ -100,7 +117,7 @@ class Disk:
 
     def restore_from_backup(self):
         copyfile(self._backup_filename, self.filename)
-        remove(self._backup_filename)
+        #remove(self._backup_filename)
 
     def __repr__(self):
         return self.filename
@@ -176,3 +193,4 @@ if __name__ == '__main__':
     EVOHDM.insert('AV300.GDT')
     EVOHDM.extract('AV300.GDT')
 
+# TODO: This backup folder is going into the weird pyinstaller land.
