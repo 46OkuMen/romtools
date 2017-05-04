@@ -20,6 +20,7 @@ class Patch:
         if self.edited is None:
             raise Exception
         cmd = 'xdelta3 -f -s "%s" "%s" "%s' % (self.original, self.edited, self.filename)
+        print cmd
         try:
             result = check_output(cmd)
         except CalledProcessError:

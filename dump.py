@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import xlsxwriter
-from openpyxl import Workbook, load_workbook
+from openpyxl import load_workbook
+
 
 def unpack(s, t=None):
     if t is None:
@@ -11,13 +12,15 @@ def unpack(s, t=None):
     value = (t * 0x100) + s
     return value
 
+
 def pack(h):
     s = h % 0x100
     t = h // 0x100
     return (s, t)
 
+
 def ascii_to_hex_string(eng, control_codes={}):
-    """Returns a hex string of the ascii bytes of a given english (translated) string."""
+    """Returns a hex string of the ascii bytes of a given english string."""
     eng_bytestring = ""
     if not eng:
         return ""
@@ -37,6 +40,7 @@ def ascii_to_hex_string(eng, control_codes={}):
 
         return eng_bytestring
 
+
 def sjis_to_hex_string(jp, control_codes={}):
     """Returns a hex string of the Shift JIS bytes of a given japanese string."""
     jp_bytestring = ""
@@ -45,7 +49,7 @@ def sjis_to_hex_string(jp, control_codes={}):
     except AttributeError:
         # Trying to encode numbers throws an attribute error; they aren't important, so just keep the number
         sjis = str(jp)
-        
+
     jp_bytestring = sjis
 
     for cc in control_codes:
@@ -64,8 +68,6 @@ class Translation(object):
         self.japanese = japanese
         self.english = english
 
-        #self.jp_bytestring = sjis_to_hex_string(japanese)
-        #self.en_bytestring = ascii_to_hex_string(english)
         self.jp_bytestring = japanese
         self.en_bytestring = english
 
@@ -116,22 +118,23 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        #print hex(self.location)
         first = hex(ord(self.gamefile.filestring[self.location]))
         second = hex(ord(self.gamefile.filestring[self.location+1]))
-        #print first, second
         old_value = unpack(first, second)
         new_value = old_value + diff
 
         new_bytes = pack(new_value)
+        print hex(old_value), hex(new_value)
+        print (first, second), new_bytes
         new_first, new_second = chr(new_bytes[0]), chr(new_bytes[1])
-        self.gamefile.filestring = self.gamefile.filestring[:self.location] + new_first + new_second + self.gamefile.filestring[self.location+2:]
+        prefix = self.gamefile.filestring[:self.location]
+        suffix = self.gamefile.filestring[self.location+2:]
+        self.gamefile.filestring = prefix + new_first + new_second + suffix
         self.new_text_location = new_value
         return new_first, new_second
 
     def __repr__(self):
         return "%s pointing to %s" % (hex(self.location), hex(self.new_text_location))
-
 
 
 class DumpExcel(object):
@@ -175,16 +178,17 @@ class DumpExcel(object):
             japanese = row[1].value.encode('shift-jis')
             english = row[3].value.encode('shift-jis')
 
-            #if isinstance(japanese, long):
+            # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
             #    continue
 
-            # Yeah this is important - blank strings are None (non-iterable), so use "" instead.
+            # Blank strings are None (non-iterable), so use "" instead.
             if not english:
                 english = ""
 
             trans.append(Translation(target, offset, japanese, english))
         return trans
+
 
 class PointerExcel(object):
     def __init__(self, path):
@@ -196,7 +200,11 @@ class PointerExcel(object):
 
     def add_worksheet(self, title):
         self.worksheet = self.workbook.add_worksheet(title)
-        header = self.workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
+        sheet_format = {'bold': True,
+                        'align': 'center',
+                        'bottom': True,
+                        'bg_color': 'gray'}
+        header = self.workbook.add_format(sheet_format)
         self.worksheet.write(0, 0, 'Text Loc', header)
         self.worksheet.write(0, 1, 'Ptr Loc', header)
         self.worksheet.write(0, 2, 'Points To', header)
@@ -226,7 +234,7 @@ class PointerExcel(object):
             if text_location in pointers:
                 pointers[text_location].append(ptr)
             else:
-                pointers[text_location] = [ptr,]
+                pointers[text_location] = [ptr, ]
         return pointers
 
     def close(self):

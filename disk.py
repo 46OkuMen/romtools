@@ -5,20 +5,21 @@ so we have to use a rather obscure Japanese utility called NDC.exe, found here:
 
 http://euee.web.fc2.com/tool/nd.html
 
-(Currently using an unofficial English translation by kuoushi)
+NDC version is 
 """
-
-from locale import getpreferredencoding
+import sys, locale
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
+#from win_subprocess import Popen
 from romtools.lzss import compress
 
-NDC_PATH = path.abspath(__file__) 
+NDC_PATH = path.abspath(__file__)
 
-SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk', 'vfd', 'vhd',
-                          'hdd', 'img', 'd88', 'tfd', 'thd', 'nfd', 'nhd', 'h0', 'h1',
-                          'h2', 'h3', 'h4', 'slh']
+# DIP supported was added in NDC Ver0.alpha5b, but this broke HDI support
+SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk',
+                          'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
+                          'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh']
 
 HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # HDI: anex86
@@ -26,6 +27,7 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # NHD: T98-Next
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
+
 
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
@@ -37,19 +39,28 @@ def file_to_string(file_path, start=0, length=0):
         else:
             return f.read()
 
+
 class FileNotFoundError(Exception):
     def __init__(self, message, errors):
         super(FileNotFoundError, self).__init__(message)
+
 
 class UnicodePathError(Exception):
     def __init__(self, message, errors):
         super(UnicodePathError, self).__init__(message)
 
+
+class FileFormatNotSupportedError(Exception):
+    def __init__(self, message, errors):
+        super(FileFormatNotSupportedError, self).__init__(message)
+
+
 class Disk:
     def __init__(self, filename, backup_folder=None):
         self.filename = filename
         self.extension = filename.split('.')[-1].lower()
-        assert self.extension in SUPPORTED_FILE_FORMATS # TODO use an exception
+        if self.extension not in SUPPORTED_FILE_FORMATS:
+            raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension, [])
 
         self.original_extension = self.extension
         self.dir = path.abspath(path.join(filename, pardir))
@@ -61,33 +72,39 @@ class Disk:
                 mkdir(backup_folder)
             self._backup_filename = path.join(backup_folder, path.basename(self.filename))
 
-        #if not path.isdir(path.join(self.dir, 'backup')):
+        # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))
-
-        print self._backup_filename
 
     def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
-        cmd = 'ndc G "%s" 0 ' % (self.filename)
+        cmd = u'ndc G "%s" 0 ' % (self.filename)
         if path_in_disk:
-            cmd += path.join(path_in_disk, filename)
+            cmd +=  '"%s"' % path.join(path_in_disk, filename)
         else:
-            cmd += filename
+            cmd += '"%s"' % filename
 
         if dest_path is None:
             dest_path = self.dir
 
         cmd += ' "' + dest_path + '"'
-        print cmd
         try:
+            print cmd
+        except:
+            print repr(cmd)
+
+        try:
+            print cmd
             result = check_output(cmd)
+            # result = Popen(cmd, shell=True)
         except CalledProcessError:
             raise FileNotFoundError('File not found in disk', [])
-        except UnicodeEncodeError:
-            raise UnicodePathError("Non-Latin characters in path", [])
+        # except UnicodeEncodeError:
+        #    print "Filesystem encoding:", sys.getfilesystemencoding(), locale.getpreferredencoding()
+        #    result = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True)
+        #    raise UnicodePathError("Non-Latin characters in path", [])
 
-        #return Gamefile(filename, self)
+        # return Gamefile(filename, self)
 
     def delete(self, filename, path_in_disk=None):
         filename_without_path = filename.split('\\')[-1]
@@ -96,20 +113,30 @@ class Disk:
             del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
         else:
             del_cmd += ' "' + filename_without_path  + '"'
-        #print del_cmd
+
+        try:
+            print del_cmd
+        except:
+            print repr(del_cmd)
+
         result = check_output(del_cmd)
 
-    def insert(self, filepath, path_in_disk=None):
+    def insert(self, filepath, path_in_disk=None, delete_original=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
-        self.delete(filename, path_in_disk)
+        if delete_original:
+            self.delete(filename, path_in_disk)
 
-
-        cmd = 'ndc P "%s" 0 %s' % (self.filename, filepath)
+        cmd = 'ndc P "%s" 0 "%s"' % (self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
-        #print cmd
+
+        try:
+            print cmd
+        except:
+            print repr(cmd)
+
         result = check_output(cmd)
 
     def backup(self):
@@ -121,6 +148,7 @@ class Disk:
 
     def __repr__(self):
         return self.filename
+
 
 class Gamefile(object):
     def __init__(self, path, disk=None, dest_disk=None, pointer_constant=None):
@@ -136,7 +164,7 @@ class Gamefile(object):
 
         self.pointer_constant = pointer_constant
 
-    def write(self, path_in_disk='.', compression=False):
+    def write(self, path_in_disk=None, compression=False):
         """Write the new data to an independent file for later inspection."""
         dest_path = path.join(self.dest_disk.dir, self.filename)
 
@@ -152,6 +180,9 @@ class Gamefile(object):
         print "inserting:", dest_path
         self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
+    def incorporate(self, block):
+        self.filestring = self.filestring.replace(block.original_blockstring, block.blockstring)
+
     def edit(self, location, data):
         """Write data to a particular location."""
         self.filestring = self.filestring[:location] + data + self.filestring[location+len(data):]
@@ -160,6 +191,7 @@ class Gamefile(object):
 
     def __repr__(self):
         return self.filename
+
 
 class Block(object):
     """A text block.
@@ -178,16 +210,17 @@ class Block(object):
         self.start = start
         self.stop = stop
 
-        self.original_blockstring = file_to_string(self.gamefile.disk.filename)
+        self.original_blockstring = file_to_string(self.gamefile.path)[start:stop]
         self.blockstring = "" + self.original_blockstring
+
+    def incorporate(self):
+        self.gamefile.incorporate(self)
 
     def __repr__(self):
         return "%s (%s, %s)" % (self.gamefile, hex(self.start), hex(self.stop))
 
 
 if __name__ == '__main__':
-    #EVODisk = Disk('46OM.hdi')
-    #EVODisk.insert('windhex.cfg')
 
     EVOHDM = Disk('EVO.hdm')
     EVOHDM.insert('AV300.GDT')
