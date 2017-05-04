@@ -7,7 +7,6 @@ http://euee.web.fc2.com/tool/nd.html
 
 NDC version is 
 """
-import sys, locale
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
@@ -27,7 +26,6 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # NHD: T98-Next
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
-
 
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
@@ -78,7 +76,7 @@ class Disk:
     def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
-        cmd = u'ndc G "%s" 0 ' % (self.filename)
+        cmd = 'ndc G "%s" 0 ' % (self.filename)
         if path_in_disk:
             cmd +=  '"%s"' % path.join(path_in_disk, filename)
         else:
@@ -89,20 +87,14 @@ class Disk:
 
         cmd += ' "' + dest_path + '"'
         try:
-            print cmd
+            print(cmd)
         except:
-            print repr(cmd)
+            print(repr(cmd))
 
         try:
-            print cmd
             result = check_output(cmd)
-            # result = Popen(cmd, shell=True)
         except CalledProcessError:
             raise FileNotFoundError('File not found in disk', [])
-        # except UnicodeEncodeError:
-        #    print "Filesystem encoding:", sys.getfilesystemencoding(), locale.getpreferredencoding()
-        #    result = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True)
-        #    raise UnicodePathError("Non-Latin characters in path", [])
 
         # return Gamefile(filename, self)
 
@@ -115,9 +107,9 @@ class Disk:
             del_cmd += ' "' + filename_without_path  + '"'
 
         try:
-            print del_cmd
+            print(del_cmd)
         except:
-            print repr(del_cmd)
+            print(repr(del_cmd))
 
         result = check_output(del_cmd)
 
@@ -133,9 +125,9 @@ class Disk:
             cmd += ' ' + path_in_disk
 
         try:
-            print cmd
+            print(cmd)
         except:
-            print repr(cmd)
+            print(repr(cmd))
 
         result = check_output(cmd)
 
@@ -172,12 +164,12 @@ class Gamefile(object):
             fileopen.write(self.filestring)
 
         if compression:
-            print 'compressing now'
+            print('compressing now')
             compressed_path = compress(dest_path)
-            print compressed_path
+            print(compressed_path)
             dest_path = compressed_path
 
-        print "inserting:", dest_path
+        print("inserting:", dest_path)
         self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
     def incorporate(self, block):
@@ -205,7 +197,8 @@ class Block(object):
         translations: List of Translation objects.
         """
 
-    def __init__(self, gamefile, (start, stop)):
+    def __init__(self, gamefile, xxx_todo_changeme):
+        (start, stop) = xxx_todo_changeme
         self.gamefile = gamefile
         self.start = start
         self.stop = stop

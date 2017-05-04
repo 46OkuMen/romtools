@@ -20,14 +20,14 @@ class Patch:
         if self.edited is None:
             raise Exception
         cmd = 'xdelta3 -f -s "%s" "%s" "%s' % (self.original, self.edited, self.filename)
-        print cmd
+        print(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
             raise Exception('Something went wrong', [])
 
     def apply(self):
-        print self.original, self.edited
+        print(self.original, self.edited)
         if self.edited:
             cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
         else:
@@ -35,7 +35,7 @@ class Patch:
             self.edited = self.original
             self.original = self.original + "_temp"
             cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
-        print cmd
+        print(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:

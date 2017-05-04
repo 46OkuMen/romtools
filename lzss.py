@@ -1,3 +1,11 @@
+"""
+    Utilities and functions for dealing with LZSS compression.
+    First written for dealing with files for Rusty (PC-98).
+
+    See here for a good resource on LZSS:
+    http://wiki.xentax.com/index.php/LZSS
+"""
+
 import os
 import sys
 from bitstring import BitArray
@@ -5,6 +13,7 @@ from bitstring import BitArray
 # Methods for dealing with flags.
 # 0: pointer
 # 1: literal
+
 
 def interpret_flag(h):
     if isinstance(h, int):
@@ -14,6 +23,7 @@ def interpret_flag(h):
     ba = BitArray(hex=h)
     return [x == '1' for x in ba.bin[::-1]]
 
+
 def flag_length(h):
     flag_interpretation = interpret_flag(h)
     length = 8
@@ -21,13 +31,16 @@ def flag_length(h):
     # True is equal to 1, so just sum them to get the length above 8.
     return length + (8 - sum(flag_interpretation))
 
+
 def little_endianize(n):
     # Ex. little_endianize(0x3e1a) -> (0x1a, 0x3e)
     return (n & 0Xff, n >> 8)
 
+
 def pointer_pack(first, second):
     """Ex. pointer_pack(0xab, 0xcd) == 0xabcd"""
     return (first << 8) + second
+
 
 def write_little_endian(file, number, bytes=1):
     for i in range(1, bytes+1):
@@ -35,9 +48,11 @@ def write_little_endian(file, number, bytes=1):
         value = (number & (0xff << shift)) >> shift
         file.write(chr(value))
 
+
 def pointer_length(p):
     """The lowest nybble of the pointer is its length, minus 3."""
     return (p & 0xF) + 3
+
 
 def pointer_offset(p):
     """The offset is something like the top three nybbles of the packed bytes."""
@@ -46,6 +61,7 @@ def pointer_offset(p):
     # Ex. 0x0700 should return 15h.
     #return (p & 0xF0) << 8) + (p >> 8) + 8
     return ((p & 0xF0) << 4) + (p >> 8) + 0x12
+
 
 assert interpret_flag('0x00') == [False, False, False, False, False, False, False, False]
 assert interpret_flag(0) == interpret_flag('0x00')
@@ -71,23 +87,23 @@ def decompress(filename):
     parent_dir = '\\'.join(filename.split('\\')[:-1])
     target_filepath = filename
     with open(target_filepath, 'rb') as f:
-        #header = f.read(7) # 4c 5a 1a 3e 46 00 00
+        # header = f.read(7) # 4c 5a 1a 3e 46 00 00
         # header stuff
         # Simple header = easier to change lengths of files??? Maybe.
         # Game is 5MB, and has 2.8MB free. (great)
-        magic_number = f.read(3)
-        expected_output_length = f.read(2) # still gotta flip the bytes
+        _ = f.read(3)  # magic number
+        _ = f.read(2)  # expected output length
         _ = f.read(2)
 
         flag = f.read(1)
         cursor = 0
-        print hex(cursor), hex(ord(flag)), ":",
+        print(hex(cursor), hex(ord(flag)), ":", end=' ')
         while flag != "":
             things = interpret_flag(ord(flag))
             for literal in things:
                 if literal:
                     literal_byte = ord(f.read(1))
-                    print hex(literal_byte),
+                    print(hex(literal_byte), end=' ')
                     buf[cursor % 0x1000] = literal_byte
                     output.append(literal_byte)
                     cursor += 1
@@ -96,7 +112,7 @@ def decompress(filename):
                         pointer_bytes = ord(f.read(1)), ord(f.read(1))
                     except TypeError:
                         break
-                    print "[%s %s]" % (hex(pointer_bytes[0]), hex(pointer_bytes[1])),
+                    print("[%s %s]" % (hex(pointer_bytes[0]), hex(pointer_bytes[1])), end=' ')
                     packed = pointer_pack(pointer_bytes[0], pointer_bytes[1])
                     length = pointer_length(packed)
                     offset = pointer_offset(packed)
@@ -109,14 +125,14 @@ def decompress(filename):
                         buf[cursor % 0x1000] = pointed_byte
                         output.append(pointed_byte)
                         cursor += 1
-            print ""
+            print("")
 
             flag = f.read(1)
             try:
-                print hex(cursor), hex(ord(flag)), ":", 
+                print(hex(cursor), hex(ord(flag)), ":", end=' ') 
                 _ = hex(ord(flag))
             except TypeError:
-                #print "end of input"
+                # print "end of input"
                 break
 
     output_filepath = os.path.join(parent_dir, 'decompressed_' + filename)
@@ -124,6 +140,7 @@ def decompress(filename):
         for b in output:
             f.write(chr(b))
     return output_filepath
+
 
 def compress(filepath):
     with open(filepath, 'rb') as f:
@@ -133,9 +150,9 @@ def compress(filepath):
     compressed_filepath = os.path.join(parent_dir, filename.lstrip('decompressed_'))
     with open(compressed_filepath, 'wb') as f:
         # Write the header first.
-        f.write(b'\x4c\x5a\x1a') # magic number
+        f.write(b'\x4c\x5a\x1a')  # magic number
         write_little_endian(f, len(target_bytes), 2)
-        f.write(b'\x00\x00') # another magic number
+        f.write(b'\x00\x00')  # another magic number
 
         cursor = 0
         while cursor <= len(target_bytes):
@@ -159,17 +176,12 @@ def compress(filepath):
 # header: 4c5a ("LZ"), almost like 4d5a ("MZ"), but suggesting LZ* compression
 
 if __name__ == '__main__':
-    #targets = lzss_files
-    #targets = ['VISUAL.COM',]
-    #for t in targets:
-    #    decompress(t)
-    #compress('decompressed_VISUAL.COM')
     if len(sys.argv) < 3:
-        print "Usage: python lzss.py [de]compress file.exe"
+        print("Usage: python lzss.py [de]compress file.exe")
         sys.exit()
     if sys.argv[1].lower() == 'decompress':
         decompress(sys.argv[2])
-        print "Wrote file to 'decompressed_" + sys.argv[2] + "'"
+        print("Wrote file to 'decompressed_" + sys.argv[2] + "'")
     elif sys.argv[1].lower() == 'compress':
         compress(sys.argv[2])
-        print "Wrote file to '" + sys.argv[2].lstrip('decompressed_') + "'"
+        print("Wrote file to '" + sys.argv[2].lstrip('decompressed_') + "'")

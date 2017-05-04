@@ -124,8 +124,8 @@ class BorlandPointer(object):
         new_value = old_value + diff
 
         new_bytes = pack(new_value)
-        print hex(old_value), hex(new_value)
-        print (first, second), new_bytes
+        print(hex(old_value), hex(new_value))
+        print((first, second), new_bytes)
         new_first, new_second = chr(new_bytes[0]), chr(new_bytes[1])
         prefix = self.gamefile.filestring[:self.location]
         suffix = self.gamefile.filestring[self.location+2:]
