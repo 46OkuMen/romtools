@@ -5,7 +5,7 @@ so we have to use a rather obscure Japanese utility called NDC.exe, found here:
 
 http://euee.web.fc2.com/tool/nd.html
 
-NDC version is 
+NDC version is Ver.0 alpha05c 2017/05/04.
 """
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
@@ -15,8 +15,7 @@ from romtools.lzss import compress
 
 NDC_PATH = path.abspath(__file__)
 
-# DIP supported was added in NDC Ver0.alpha5b, but this broke HDI support
-SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'flp', 'vmdk', 'dsk',
+SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
                           'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh']
 
@@ -26,6 +25,8 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # NHD: T98-Next
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
+
+DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
 def file_to_string(file_path, start=0, length=0):
     # Defaults: read full file from start.
@@ -37,15 +38,18 @@ def file_to_string(file_path, start=0, length=0):
         else:
             return f.read()
 
+def is_DIP(target):
+    """Detect a DIP file if extension not specified."""
+    with open(target, 'rb') as f:
+        file_header = f.read(7)
+        print(repr(file_header))
+        print(repr(DIP_HEADER))
+        return file_header == DIP_HEADER
+
 
 class FileNotFoundError(Exception):
     def __init__(self, message, errors):
         super(FileNotFoundError, self).__init__(message)
-
-
-class UnicodePathError(Exception):
-    def __init__(self, message, errors):
-        super(UnicodePathError, self).__init__(message)
 
 
 class FileFormatNotSupportedError(Exception):
@@ -57,10 +61,18 @@ class Disk:
     def __init__(self, filename, backup_folder=None):
         self.filename = filename
         self.extension = filename.split('.')[-1].lower()
+
+        # If there's no extension, it won't get split at the period
+        print(self.extension)
+        print(filename)
+        if self.extension == filename.lower():
+            if is_DIP(self.filename):
+                self.extension = 'dip'
+
         if self.extension not in SUPPORTED_FILE_FORMATS:
             raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension, [])
 
-        self.original_extension = self.extension
+        # self.original_extension = self.extension
         self.dir = path.abspath(path.join(filename, pardir))
 
         if backup_folder is None:
@@ -73,7 +85,7 @@ class Disk:
         # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))
 
-    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
+    def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
         cmd = 'ndc G "%s" 0 ' % (self.filename)
@@ -86,6 +98,14 @@ class Disk:
             dest_path = self.dir
 
         cmd += ' "' + dest_path + '"'
+
+        if fallback_path and not path_in_disk:
+            fallback_cmd = 'ndc G "%s" 0 ' % (self.filename)
+            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
+            fallback_cmd += ' "' + dest_path + '"'
+        else:
+            fallback_cmd = None
+
         try:
             print(cmd)
         except:
@@ -94,11 +114,15 @@ class Disk:
         try:
             result = check_output(cmd)
         except CalledProcessError:
-            raise FileNotFoundError('File not found in disk', [])
+            try:
+                print("Trying the fallback command:", fallback_cmd)
+                result = check_output(fallback_cmd)
+            except CalledProcessError:
+                raise FileNotFoundError('File not found in disk', [])
 
         # return Gamefile(filename, self)
 
-    def delete(self, filename, path_in_disk=None):
+    def delete(self, filename, path_in_disk=None, fallback_path=None):
         filename_without_path = filename.split('\\')[-1]
         del_cmd = 'ndc D "%s" 0' % (self.filename)
         if path_in_disk:
@@ -106,30 +130,56 @@ class Disk:
         else:
             del_cmd += ' "' + filename_without_path  + '"'
 
+        if fallback_path and not path_in_disk:
+            fallback_cmd = 'ndc D "%s" 0 ' % (self.filename)
+            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
+        else:
+            fallback_cmd = None
+
         try:
             print(del_cmd)
         except:
             print(repr(del_cmd))
 
-        result = check_output(del_cmd)
+        try:
+            result = check_output(del_cmd)
+        except CalledProcessError:
+            try:
+                print("Trying the fallback command:", fallback_cmd)
+                result = check_output(fallback_cmd)
+            except CalledProcessError:
+                raise FileNotFoundError("File not found in disk", [])
 
-    def insert(self, filepath, path_in_disk=None, delete_original=True):
+    def insert(self, filepath, path_in_disk=None, fallback_path=None, delete_original=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
         if delete_original:
-            self.delete(filename, path_in_disk)
+            self.delete(filename, path_in_disk, fallback_path=fallback_path)
 
         cmd = 'ndc P "%s" 0 "%s"' % (self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
+
+        if fallback_path and not path_in_disk:
+            fallback_cmd = 'ndc P "%s" 0 "%s"' % (self.filename, filepath)
+            fallback_cmd += fallback_path
+        else:
+            fallback_cmd = None
 
         try:
             print(cmd)
         except:
             print(repr(cmd))
 
-        result = check_output(cmd)
+        try:
+            result = check_output(cmd)
+        except CalledProcessError:
+            try:
+                print("Trying the fallback command:", fallback_cmd)
+                result = check_output(fallback_cmd)
+            except CalledProcessError:
+                raise FileNotFoundError("File not found in disk", [])
 
     def backup(self):
         copyfile(self.filename, self._backup_filename)
