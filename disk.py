@@ -85,6 +85,47 @@ class Disk:
         # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))
 
+    def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
+        """Figure out if the fallback is necessary from an "extract" command."""
+
+        cmd = 'ndc G "%s" 0 ' % (self.filename)
+        if path_in_disk:
+            cmd +=  '"%s"' % path.join(path_in_disk, filename)
+        else:
+            cmd += '"%s"' % filename
+
+        if dest_path is None:
+            dest_path = self.dir
+
+        cmd += ' "' + dest_path + '"'
+
+        if fallback_path and not path_in_disk:
+            fallback_cmd = 'ndc G "%s" 0 ' % (self.filename)
+            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
+            fallback_cmd += ' "' + dest_path + '"'
+        else:
+            fallback_cmd = None
+
+        try:
+            print(cmd)
+        except:
+            print(repr(cmd))
+
+        try:
+            result = check_output(cmd)
+            fallback_necessary = False
+        except CalledProcessError:
+            try:
+                print("Trying the fallback command:", fallback_cmd)
+                result = check_output(fallback_cmd)
+                fallback_necessary = True
+            except CalledProcessError:
+                fallback_necessary = False # Don't use the fallback, it just fails
+
+        # TODO: Cleanup the extracted file        
+        return fallback_necessary
+
+
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
