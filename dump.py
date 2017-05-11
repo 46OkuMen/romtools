@@ -95,8 +95,9 @@ class BorlandPointer(object):
         self.new_text_location = text_location
 
     def text(self):
+        print("Getting text for", self)
         gamefile_slice = self.gamefile.filestring[self.text_location:self.text_location+30]
-        gamefile_slice = gamefile_slice.split('\x00')[0]
+        gamefile_slice = gamefile_slice.split(b'\x00')[0]
         try:
             gamefile_slice = gamefile_slice.decode('shift_jis')
         except:
@@ -118,20 +119,23 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        first = hex(ord(self.gamefile.filestring[self.location]))
-        second = hex(ord(self.gamefile.filestring[self.location+1]))
+        print("Editing %s with diff %s" % (self, diff))
+        first = hex(self.gamefile.filestring[self.location])
+        second = hex(self.gamefile.filestring[self.location+1])
+        print(first, second)
         old_value = unpack(first, second)
         new_value = old_value + diff
 
-        new_bytes = pack(new_value)
+        new_bytes = new_value.to_bytes(length=2, byteorder='little')
         print(hex(old_value), hex(new_value))
-        print((first, second), new_bytes)
-        new_first, new_second = chr(new_bytes[0]), chr(new_bytes[1])
+        print((first, second), repr(new_bytes))
+        #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
         prefix = self.gamefile.filestring[:self.location]
         suffix = self.gamefile.filestring[self.location+2:]
-        self.gamefile.filestring = prefix + new_first + new_second + suffix
+        self.gamefile.filestring = prefix + new_bytes + suffix
         self.new_text_location = new_value
-        return new_first, new_second
+        assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
+        return new_bytes
 
     def __repr__(self):
         return "%s pointing to %s" % (hex(self.location), hex(self.new_text_location))
@@ -159,7 +163,7 @@ class DumpExcel(object):
                 worksheet = self.workbook.get_sheet_by_name(target.filename)
             except KeyError:
                 worksheet = self.workbook.get_sheet_by_name(target.filename.lstrip('decompressed_'))
-        for row in worksheet.rows[1:]:  # Skip the first row, it's just labels
+        for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
             try:
                 offset = int(row[0].value, 16)
             except TypeError:

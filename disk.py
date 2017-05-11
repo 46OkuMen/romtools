@@ -28,15 +28,15 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 
 DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
-def file_to_string(file_path, start=0, length=0):
-    # Defaults: read full file from start.
-    # TODO: The default file path for this causes some real problems...
-    with open(file_path, 'rb') as f:
-        f.seek(start)
-        if length:
-            return f.read(length)
-        else:
-            return f.read()
+#def file_to_string(file_path, start=0, length=0):
+#    # Defaults: read full file from start.
+#    # TODO: The default file path for this causes some real problems...
+#    with open(file_path, 'rb') as f:
+#        f.seek(start)
+#        if length:
+#            return f.read(length)
+#        else:
+#            return f.read()
 
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
@@ -52,13 +52,18 @@ class FileNotFoundError(Exception):
         super(FileNotFoundError, self).__init__(message)
 
 
+class ReadOnlyDiskError(Exception):
+    def __init__(self, message, errors):
+        super(ReadOnlyDiskError, self).__init__(message)
+
+
 class FileFormatNotSupportedError(Exception):
     def __init__(self, message, errors):
         super(FileFormatNotSupportedError, self).__init__(message)
 
 
 class Disk:
-    def __init__(self, filename, backup_folder=None):
+    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None):
         self.filename = filename
         self.extension = filename.split('.')[-1].lower()
 
@@ -85,12 +90,15 @@ class Disk:
         # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))
 
+        self.dump_excel = dump_excel
+        self.pointer_excel = pointer_excel
+
     def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
         """Figure out if the fallback is necessary from an "extract" command."""
 
         cmd = 'ndc G "%s" 0 ' % (self.filename)
         if path_in_disk:
-            cmd +=  '"%s"' % path.join(path_in_disk, filename)
+            cmd += '"%s"' % path.join(path_in_disk, filename)
         else:
             cmd += '"%s"' % filename
 
@@ -124,7 +132,6 @@ class Disk:
 
         # TODO: Cleanup the extracted file        
         return fallback_necessary
-
 
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
@@ -185,11 +192,14 @@ class Disk:
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
-            try:
-                print("Trying the fallback command:", fallback_cmd)
-                result = check_output(fallback_cmd)
-            except CalledProcessError:
-                raise FileNotFoundError("File not found in disk", [])
+            if fallback_cmd:
+                try:
+                    print("Trying the fallback command:", fallback_cmd)
+                    result = check_output(fallback_cmd)
+                except CalledProcessError:
+                    raise ReadOnlyDiskError("Disk is in read-only mode", [])
+            else:
+                raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
     def insert(self, filepath, path_in_disk=None, fallback_path=None, delete_original=True):
         # First, delete the original file in the disk if applicable.
@@ -234,18 +244,27 @@ class Disk:
 
 
 class Gamefile(object):
-    def __init__(self, path, disk=None, dest_disk=None, pointer_constant=None):
+    def __init__(self, path, disk=None, dest_disk=None, pointer_constant=0):
         self.path = path
         self.filename = path.split('\\')[-1]
         self.disk = disk
         self.dest_disk = dest_disk
 
-        self.original_filestring = file_to_string(path)
-        self.filestring = "" + self.original_filestring
+        with open(path, 'rb') as f:
+            self.original_filestring = f.read()
+        self.filestring = self.original_filestring
         with open(path, 'rb') as f:
             self.length = len(f.read())
 
+        assert len(self.original_filestring) == len(self.filestring) == self.length
+
         self.pointer_constant = pointer_constant
+
+        if self.disk:
+            if self.disk.pointer_excel:
+                self.pointers = self.disk.pointer_excel.get_pointers(self)
+        else:
+            self.pointers = None
 
     def write(self, path_in_disk=None, compression=False):
         """Write the new data to an independent file for later inspection."""
@@ -272,6 +291,15 @@ class Gamefile(object):
         assert len(self.filestring) == len(self.original_filestring)
         return self.filestring
 
+    def edit_pointers_in_range(self, rng, diff):
+        """Edit all the pointers between two file offsets."""
+        start, stop = rng
+        print("Editing pointers in range %s %s" % (hex(start), hex(stop)))
+        if diff != 0:
+            for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
+                for ptr in self.pointers[offset]:
+                    ptr.edit(diff)
+
     def __repr__(self):
         return self.filename
 
@@ -294,8 +322,9 @@ class Block(object):
         self.start = start
         self.stop = stop
 
-        self.original_blockstring = file_to_string(self.gamefile.path)[start:stop]
-        self.blockstring = "" + self.original_blockstring
+        with open(self.gamefile.path, 'rb') as f:
+            self.original_blockstring = f.read()[start:stop]
+        self.blockstring = self.original_blockstring
 
     def incorporate(self):
         self.gamefile.incorporate(self)
