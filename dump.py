@@ -62,7 +62,7 @@ def sjis_to_hex_string(jp, control_codes={}):
 
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
-    def __init__(self, gamefile, location, japanese, english):
+    def __init__(self, gamefile, location, japanese, english, control_codes={}):
         self.location = location
         self.gamefile = gamefile
         self.japanese = japanese
@@ -70,6 +70,12 @@ class Translation(object):
 
         self.jp_bytestring = japanese
         self.en_bytestring = english
+
+        for cc in control_codes:
+            if cc in self.jp_bytestring:
+                self.jp_bytestring = self.jp_bytestring.replace(cc, control_codes[cc])
+            if cc in self.en_bytestring:
+                self.en_bytestring = self.en_bytestring.replace(cc, control_codes[cc])
 
     def refresh_jp_bytestring(self):
         self.jp_bytestring = sjis_to_hex_string(self.japanese)
@@ -95,7 +101,6 @@ class BorlandPointer(object):
         self.new_text_location = text_location
 
     def text(self):
-        print("Getting text for", self)
         gamefile_slice = self.gamefile.filestring[self.text_location:self.text_location+30]
         gamefile_slice = gamefile_slice.split(b'\x00')[0]
         try:
@@ -190,7 +195,7 @@ class DumpExcel(object):
             if not english:
                 english = ""
 
-            trans.append(Translation(target, offset, japanese, english))
+            trans.append(Translation(target, offset, japanese, english, control_codes=self.control_codes))
         return trans
 
 
