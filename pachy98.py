@@ -62,9 +62,12 @@ if __name__== '__main__':
             else:
                 files = image['floppy']['files']
 
+            # Find the right directory to look for the files in.
+            path_in_disk = DiskImage.find_file_dir(files)
+
             for f in files:
                 print(f)
-                DiskImage.extract(f['name'])
+                DiskImage.extract(f['name'], path_in_disk)
                 copyfile(f['name'], f['name'] + '_edited')
 
 
@@ -93,7 +96,7 @@ if __name__== '__main__':
                     exit()
 
                 copyfile(f['name'] + '_edited', f['name'])
-                DiskImage.insert(f['name'])
+                DiskImage.insert(f['name'], path_in_disk)
 
                 remove(f['name'])
                 remove(f['name'] + '_edited')

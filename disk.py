@@ -133,6 +133,44 @@ class Disk:
         # TODO: Cleanup the extracted file        
         return fallback_necessary
 
+    def listdir(self, subdir=''):
+        """ Display all the filenames and subdirs in a given disk and subdir.
+        """
+        cmd = 'ndc "%s" 0 ' % (self.filename)
+        if subdir:
+            cmd += '"%s"' % subdir
+
+        print(cmd)
+        try:
+            result = check_output(cmd)
+        except CalledProcessError:
+            raise FileNotFoundError('Subdirectory not found in disk', [])
+
+        result = [r.split(b'\t') for r in result.split(b'\r\n')]
+        result = list(filter(lambda x: len(x) == 4, result))
+
+        filenames = [r[0].decode('utf-8') for r in result if r[2] != b'<DIR>']
+        subdirs = [r[0].decode('utf-8') for r in result if r[2] == b'<DIR>' and len(r[0].strip(b'.')) > 0]
+
+        return filenames, subdirs
+
+    def find_file_dir(self, files):
+        """ Traverse the disk dirs to find the one that contains all relevant files.
+        """
+        dir_queue = ['']
+
+        while dir_queue:
+            this_dir = dir_queue.pop(0)
+            this_dir_files, subdirs = self.listdir(this_dir)
+
+            if all([f['name'] in this_dir_files for f in files]):
+                return this_dir
+
+            for d in subdirs:
+                dir_queue.append(path.join(this_dir, d))
+
+        raise FileNotFoundError("Could not find all the files in the same dir.", [])
+
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
