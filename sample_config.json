@@ -1,0 +1,85 @@
+{
+  "images":[             // each object in this array is a file box to place the path to an image to patch
+    {
+      "id":0,            // might not be necessary since this is already in the array keys
+      "name":"Image 1",  // text that gets displayed next to the file entry box
+      "type":"mixed",    // types are floppy, hdd, and mixed (which is generally only used on the first entry
+      "floppy": {
+        "files":[
+          {
+            "name":"filetopatch.exe",                              // name of file in this image to patch
+            "patch":"filetopatch.exe.xdelta"                       // patch file to use with this file
+          },
+          {
+            "name":"filetopatch2.exe",
+            "patch":{                                              // patch can be an object for extra configurability
+              "type":"checkbox",                                   // can be in special or advanced
+              "id":"optionname",                                   // name of option to check
+              "checked":"filetopatch2whenchecked.exe.xdelta",
+              "unchecked":"filetopatch2whenunchecked.exe.xdelta"
+            }
+          },
+          {
+            "name":"/path/to/failsafe.exe",      // name can include a default path
+            "patch":{
+              "type":"failsafelist",
+              "list":[                           // list works like this, try list in order (can be as many files as needed)
+                "failsafe-canfail.exe.xdelta",   // try this, but don't throw an error if CRC mismatch
+                "failsafe-endgoal.exe.xdelta"    // try this, throw an error if CRC mismatch
+              ]
+            }
+          }
+        ],
+        "common":[
+          "Common 1.fdi","Common 1.d88","Common 1-alt.fdi"
+        ]
+      },
+      "hdd": {
+        "files":[
+          // same as above
+        ]
+      }
+    },
+    {
+      "id":1,
+      "name":"Image 2",
+      "type":"floppy",
+      "floppy": {
+        "files":[
+          // same as above
+        ],
+        "common":[
+          "Common 2.fdi","Common 2.d88","Common 2.fdi"
+        ]
+      }
+    }
+    // add more as needed
+  ],
+  "special":[            // options not hidden behind anything and displayed under the image entries
+    {
+      "type":"checkbox", // displays a checkbox
+      "name":"Option 1", // text shown next to checkbox
+      "id":"optionname"
+    }
+  ],
+  "options":[
+    {
+      "id":"speedhack",
+      "type":"checkbox",
+      "description": "Faster text speed in cut scenes? (Requires Neko Project II)",
+    },
+    {
+      "id":"delete_all_first",
+      "type":"silent",
+      "description": "Delete all files on the disk before trying to insert them.",
+    }
+  ],
+  "advanced":[           // options hidden behind the advanced checkbox
+    {
+      "type":"path",     // displays a path option that will only affect hdd patching
+      "name":"Path to Files",
+      "default":"/default/path"
+    }
+  ]
+
+}

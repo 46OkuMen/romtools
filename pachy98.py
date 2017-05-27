@@ -12,17 +12,19 @@ if __name__== '__main__':
     print("Patching: E.V.O.: The Theory of Evolution")
     with open('EVO-cfg.json', 'r') as f:
         cfg = json.load(f)
-        print(json.dumps(cfg, indent=4))
+        #print(json.dumps(cfg, indent=4))
 
         expected_image_length = len([i for i in cfg['images'] if i['type'] != 'disabled'])
 
         selected_images = []
         hd_found = False
 
+        print(argv)
+
         if len(argv) > 1:
             # Filenames have been provided as arguments.
             if len(argv) == 2:
-                if splitext(argv[1])[1] in HARD_DISK_FORMATS:
+                if argv[1].split('.')[-1].lower() in HARD_DISK_FORMATS:
                     selected_images = [argv[1],]
             elif len(argv) > 2:
                 selected_images = argv[1:]
@@ -52,6 +54,19 @@ if __name__== '__main__':
         print(selected_images)
         assert len(selected_images) in (1, expected_image_length)
 
+        options = {}
+        for o in cfg['options']:
+            print(o['description'],)
+            choice = None
+            if o['type'] == 'checkbox':
+                print("(y/n)")
+                while choice.strip(" ").lower()[0] not in ('y', 'n'):
+                    choice = input(">")
+                if choice:
+                    options[o['id']] = True
+                else:
+                    options[o['id']] = False
+
         for i, disk_path in enumerate(selected_images):
             image = cfg['images'][i]
             DiskImage = Disk(disk_path, backup_folder='backup')
@@ -70,11 +85,16 @@ if __name__== '__main__':
                 DiskImage.extract(f['name'], path_in_disk)
                 copyfile(f['name'], f['name'] + '_edited')
 
-
                 # Failsafe list. Patches to try in order.
                 patch_list = []
-                if 'list' in f['patch']:
-                    patch_list = f['patch']['list']
+                if 'type' in f['patch']:
+                    if f['patch']['type'] == 'failsafelist':
+                        patch_list = f['patch']['list']
+                    elif f['patch']['type'] == 'checkbox':
+                        if f['patch']['id']:
+                            patch_list = [f['patch']['checked'],]
+                        else:
+                            patch_list = [f['patch']['unchecked'],]
                 else:
                     patch_list = [f['patch'],]
 
@@ -108,4 +128,3 @@ if __name__== '__main__':
 # Changes made to the json:
 # Removed all 'disabled' disks
 # Could probably get rid of "value" as well
-# Could get rid of "type" for the patches, since I will just treat them all as failsafelists.
