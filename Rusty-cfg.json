@@ -93,7 +93,7 @@
           }
         ],
         "common":[
-          "Rusty (System disk).hdm", "Rusty (System disk).hdm [Alt 1]"
+          "Rusty (System disk).hdm", "Rusty (System disk).hdm [Alt 1]", "ﾗｽﾃｨ_1"
         ]
       },
       "hdd": {
@@ -229,7 +229,7 @@
           }
         ],
         "common": [
-            "Rusty.hdi", "rusty.hdi", "Rusty (19xx)(C-Lab).hdi"
+            "Rusty.hdi", "rusty.hdi", "Rusty (19xx)(C-Lab).hdi", "【PC98】Ｒｕｓｔｙ.hdi"
         ]
       }
     },
@@ -281,7 +281,7 @@
           }
         ],
         "common":[
-            "Rusty (Opening disk).hdm"
+            "Rusty (Opening disk).hdm", "ﾗｽﾃｨ_2"
         ]
       }
     },
@@ -297,7 +297,7 @@
           }
         ],
         "common":[
-          "Rusty (Game disk A).hdm"
+          "Rusty (Game disk A).hdm", "ﾗｽﾃｨ_3"
         ]
       }
     },
@@ -317,7 +317,7 @@
           }
         ],
         "common":[
-          "Rusty (Game disk B).hdm"
+          "Rusty (Game disk B).hdm", "ﾗｽﾃｨ_4"
         ]
       }
     }

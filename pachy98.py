@@ -10,8 +10,12 @@ import codecs
 
 if __name__== '__main__':
     print("Pachy98 v0.0.1 by 46 OkuMen")
-    with open('Rusty-cfg.json', 'r', encoding='shift_jis') as f:
-        cfg = json.load(f)
+    with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
+        # Load everything into a Unicode string first to handle SJIS text.
+        # (Wish there was a slightly easier way)
+        unicode_safe = f.read()
+        cfg = json.loads(unicode_safe)
+        #cfg = json.load(f)
         info = cfg['info']
         print("Patching: %s (%s) %s by %s ( %s )" % (info['game'], info['language'], info['version'], info['author'], info['authorsite']))
         #print(json.dumps(cfg, indent=4))
@@ -19,6 +23,7 @@ if __name__== '__main__':
         expected_image_length = len([i for i in cfg['images'] if i['type'] != 'disabled'])
 
         selected_images = []
+        arg_images = []
         hd_found = False
 
         print(argv)
@@ -27,11 +32,11 @@ if __name__== '__main__':
             # Filenames have been provided as arguments.
             if len(argv) == 2:
                 if argv[1].split('.')[-1].lower() in HARD_DISK_FORMATS:
-                    selected_images = [argv[1],]
+                    arg_images = [argv[1],]
             elif len(argv) > 2:
-                selected_images = argv[1:]
+                arg_images = argv[1:]
 
-        if len(selected_images) not in (0, 1, expected_image_length):
+        if len(arg_images) not in (0, 1, expected_image_length):
             print("Received the wrong number of files as arguments.")
             exit()
 
@@ -39,25 +44,32 @@ if __name__== '__main__':
             # 1) selected_images has some of the right images, but not all.
             # 2) selected_images are in the wrong order.
 
-        # Search the current directory for the right files
+        # Ensure they're in the right order
         for image in cfg['images']:
-            if image['type'] == 'mixed':
-                for common in image['hdd']['common']:
-                    if isfile(common):
-                        print(common, "was found in the current directory")
-                        selected_images = [common,]
-                        hd_found = True
-                        break
-                if not hd_found:
+            for arg_image in arg_images:
+                if arg_image in image['floppy']['common']:
+                    selected_images.append(arg_image)
+
+        if len(selected_images) == 0:
+        # Otherwise, search the directory for common image names
+            for image in cfg['images']:
+                if image['type'] == 'mixed':
+                    for common in image['hdd']['common']:
+                        if isfile(common):
+                            print(common, "was found in the current directory")
+                            selected_images = [common,]
+                            hd_found = True
+                            break
+                    if not hd_found:
+                        for common in image['floppy']['common']:
+                            if isfile(common):
+                                selected_images.append(common)
+                                print(common, "was found in the current directory")
+                elif image['type'] == 'floppy' and not hd_found:
                     for common in image['floppy']['common']:
                         if isfile(common):
                             selected_images.append(common)
                             print(common, "was found in the current directory")
-            elif image['type'] == 'floppy' and not hd_found:
-                for common in image['floppy']['common']:
-                    if isfile(common):
-                        selected_images.append(common)
-                        print(common, "was found in the current directory")
 
         print(selected_images)
         assert len(selected_images) in (1, expected_image_length)
