@@ -1,4 +1,12 @@
 {
+  "info":
+  {
+    "game": "Gamename",
+    "language": "English",
+    "version": "v0.0.1",
+    "author": "46 OkuMen",
+    "authorsite": "http://46okumen.com"
+  },
   "images":[             // each object in this array is a file box to place the path to an image to patch
     {
       "id":0,            // might not be necessary since this is already in the array keys
@@ -55,14 +63,7 @@
     }
     // add more as needed
   ],
-  "special":[            // options not hidden behind anything and displayed under the image entries
-    {
-      "type":"checkbox", // displays a checkbox
-      "name":"Option 1", // text shown next to checkbox
-      "id":"optionname"
-    }
-  ],
-  "options":[
+  "options":[            // combination of "special" and "advanced"
     {
       "id":"speedhack",
       "type":"checkbox",
@@ -72,13 +73,6 @@
       "id":"delete_all_first",
       "type":"silent",
       "description": "Delete all files on the disk before trying to insert them.",
-    }
-  ],
-  "advanced":[           // options hidden behind the advanced checkbox
-    {
-      "type":"path",     // displays a path option that will only affect hdd patching
-      "name":"Path to Files",
-      "default":"/default/path"
     }
   ]
 

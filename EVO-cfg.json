@@ -1,4 +1,12 @@
 {
+  "info":
+  {
+    "game": "E.V.O.: The Theory of Evolution",
+    "language": "English",
+    "version": "v1.1.1",
+    "author": "46 OkuMen",
+    "authorsite": "http://46okumen.com"
+  },
   "images":[             
     {
       "id":0,
@@ -255,15 +263,5 @@
     }
 
   ],
-  "options":[
-
-  ],
-  "advanced":[
-    {
-      "type":"path",
-      "name":"Path In Disk",
-      "value":""
-    }
-  ]
-
+  "options":[]
 }

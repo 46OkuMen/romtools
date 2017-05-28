@@ -149,8 +149,8 @@ class Disk:
         result = [r.split(b'\t') for r in result.split(b'\r\n')]
         result = list(filter(lambda x: len(x) == 4, result))
 
-        filenames = [r[0].decode('utf-8') for r in result if r[2] != b'<DIR>']
-        subdirs = [r[0].decode('utf-8') for r in result if r[2] == b'<DIR>' and len(r[0].strip(b'.')) > 0]
+        filenames = [r[0].decode('shift_jis') for r in result if r[2] != b'<DIR>']
+        subdirs = [r[0].decode('shift_jis') for r in result if r[2] == b'<DIR>' and len(r[0].strip(b'.')) > 0]
 
         return filenames, subdirs
 
