@@ -10,8 +10,8 @@ NDC version is Ver.0 alpha05c 2017/05/04.
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-#from win_subprocess import Popen
-from romtools.lzss import compress
+
+from lzss import compress
 
 NDC_PATH = path.abspath(__file__)
 
