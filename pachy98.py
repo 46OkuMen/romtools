@@ -4,7 +4,7 @@ from shutil import copyfile
 from os.path import isfile, splitext
 from os.path import split as pathsplit
 from os.path import join as pathjoin
-from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError
+from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError
 from patch import Patch, PatchChecksumError
 import json
 import codecs
@@ -14,7 +14,7 @@ def is_valid_disk_image(filename):
 
 if __name__== '__main__':
     print("Pachy98 v0.0.1 by 46 OkuMen")
-    with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
+    with open('EVO-cfg.json', 'r', encoding='utf-8') as f:
         # Load everything into a Unicode string first to handle SJIS text.
         # (Wish there was a slightly easier way)
         unicode_safe = f.read()
@@ -32,6 +32,7 @@ if __name__== '__main__':
 
         print(argv)
 
+        # ['pachy98.exe', 'arg1', 'arg2',] etc
         if len(argv) > 1:
             # Filenames have been provided as arguments.
             if len(argv) == 2:
@@ -46,20 +47,27 @@ if __name__== '__main__':
 
         # TODO: Need to handle combinations of these two cases:
             # 1) selected_images has some of the right images, but not all.
-            # 2) selected_images are in the wrong order. (Done)
+            # 2) selected_images are in the wrong order.
 
-        # Ensure they're in the right order
+        # Ensure they're in the right order by checking their contents.
         for image in cfg['images']:
             image_found = False
             for arg_image in arg_images:
-                if arg_image in image['floppy']['common']:
+                ArgDisk = Disk(arg_image)
+                try:
+                    ArgDisk.find_file_dir(image['floppy']['files'])
                     selected_images.append(arg_image)
                     image_found = True
+                except FileNotFoundError:
+                    continue
 
             if not image_found:
                 selected_images.append(None)
 
-        if len(selected_images) == 0:
+        print(selected_images)
+
+        # TODO: Better to check all the file contents in this directory than use filenames.
+        if len([s for s in  selected_images if s is not None]) == 0:
         # Otherwise, search the directory for common image names
             for image in cfg['images']:
                 if image['type'] == 'mixed':
