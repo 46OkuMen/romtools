@@ -1,20 +1,39 @@
 from sys import argv, exit
 from os import listdir, remove
 from shutil import copyfile
+from os import access, W_OK
 from os.path import isfile, splitext
 from os.path import split as pathsplit
 from os.path import join as pathjoin
-from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError
+from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 import json
-import codecs
 
 def is_valid_disk_image(filename):
-    return filename.split('.')[-1] in SUPPORTED_FILE_FORMATS or len(filename.split('.')) == 1
+    # TODO: How to handle directories?
+    if filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
+        return True
+    elif len(filename.split('.')) == 1:
+        try:
+            return is_DIP(filename)
+        except PermissionError:
+            return False
+
+def y_n_input():
+    print('(y/n)')
+    user_input = input(">")
+    user_input = user_input.strip(" ").lower()[0]
+    while user_input not in ('y', 'n'):
+        print('(y/n')
+        user_input = input(">")
+        user_input = user_input.strip(" ").lower()[0]
+
+    return user_input
+
 
 if __name__== '__main__':
     print("Pachy98 v0.0.1 by 46 OkuMen")
-    with open('EVO-cfg.json', 'r', encoding='utf-8') as f:
+    with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
         # Load everything into a Unicode string first to handle SJIS text.
         # (Wish there was a slightly easier way)
         unicode_safe = f.read()
@@ -22,32 +41,17 @@ if __name__== '__main__':
         #cfg = json.load(f)
         info = cfg['info']
         print("Patching: %s (%s) %s by %s ( %s )" % (info['game'], info['language'], info['version'], info['author'], info['authorsite']))
-        #print(json.dumps(cfg, indent=4))
 
         expected_image_length = len([i for i in cfg['images'] if i['type'] != 'disabled'])
 
-        selected_images = []
+        selected_images = [None,]*expected_image_length
         arg_images = []
         hd_found = False
-
-        print(argv)
 
         # ['pachy98.exe', 'arg1', 'arg2',] etc
         if len(argv) > 1:
             # Filenames have been provided as arguments.
-            if len(argv) == 2:
-                if argv[1].split('.')[-1].lower() in HARD_DISK_FORMATS:
-                    arg_images = [argv[1],]
-            elif len(argv) > 2:
-                arg_images = argv[1:]
-
-        #if len(arg_images) not in (0, 1, expected_image_length):
-        #    print("Received the wrong number of files as arguments.")
-        #    exit()
-
-        # TODO: Need to handle combinations of these two cases:
-            # 1) selected_images has some of the right images, but not all.
-            # 2) selected_images are in the wrong order.
+            arg_images = argv[1:]
 
         # Ensure they're in the right order by checking their contents.
         for image in cfg['images']:
@@ -55,48 +59,70 @@ if __name__== '__main__':
             for arg_image in arg_images:
                 ArgDisk = Disk(arg_image)
                 try:
-                    ArgDisk.find_file_dir(image['floppy']['files'])
-                    selected_images.append(arg_image)
+                    disk_filenames = [f['name'] for f in image['floppy']['files']]
+                    ArgDisk.find_file_dir(disk_filenames)
+                    selected_images[image['id']] = arg_image
                     image_found = True
                 except FileNotFoundError:
                     continue
 
             if not image_found:
-                selected_images.append(None)
+                selected_images[image['id']] = None
 
-        print(selected_images)
+        images_in_dir = [f for f in listdir('.') if is_valid_disk_image(f)]
 
-        # TODO: Better to check all the file contents in this directory than use filenames.
-        if len([s for s in  selected_images if s is not None]) == 0:
+        #if len([s for s in  selected_images if s is not None]) == 0:
         # Otherwise, search the directory for common image names
-            for image in cfg['images']:
-                if image['type'] == 'mixed':
-                    for common in image['hdd']['common']:
-                        if isfile(common):
-                            print(common, "was found in the current directory")
-                            selected_images = [common,]
-                            hd_found = True
-                            break
-                    if not hd_found:
-                        floppy_found = False
-                        for common in image['floppy']['common']:
-                            if isfile(common):
-                                selected_images.append(common)
-                                print(common, "was found in the current directory")
-                                floppy_found = True
-                        if not floppy_found:
-                            selected_images.append(None)
-                elif image['type'] == 'floppy' and not hd_found:
+        for image in cfg['images']:
+            if image['type'] == 'mixed':
+                hdd_filenames = [f['name'] for f in image['hdd']['files']]
+                for dir_img in images_in_dir:
+                    d = Disk(dir_img)
+                    try:
+                        _ = d.find_file_dir(hdd_filenames)
+                        selected_images = [dir_img,]
+                        hd_found = True
+                        break
+                    except FileNotFoundError:
+                        pass
+
+                if not hd_found:
+                    floppy_filenames = [f['name'] for f in image['floppy']['files']]
                     floppy_found = False
-                    for common in image['floppy']['common']:
-                        if isfile(common):
-                            selected_images.append(common)
+                    #for common in image['floppy']['common']:
+                    #    if isfile(common):
+                    for dir_img in images_in_dir:
+                        d = Disk(dir_img)
+                        try:
+                            _ = d.find_file_dir(floppy_filenames)
+                            selected_images[image['id']] = dir_img
+                            #print(dir_img, "was found in the current directory")
                             floppy_found = True
-                            print(common, "was found in the current directory")
                             break
+                        except FileNotFoundError:
+                            pass
 
                     if not floppy_found:
-                        selected_images.append(None)
+                        print("No disk found for '%s'" % image['name'])
+                        selected_images[image['id']] = None
+
+            elif image['type'] == 'floppy' and not hd_found:
+                floppy_found = False
+                floppy_filenames = [f['name'] for f in image['floppy']['files']]
+                for dir_img in images_in_dir:
+                    d = Disk(dir_img)
+                    try:
+                        _ = d.find_file_dir(floppy_filenames)
+                        selected_images[image['id']] = dir_img
+                        floppy_found = True
+                        print(dir_img, "was found in the current directory")
+                        break
+                    except FileNotFoundError:
+                        pass
+
+                if not floppy_found:
+                    print("No disk found for '%s'" % image['name'])
+                    selected_images[image['id']] = None
 
         print(selected_images)
         if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
@@ -112,17 +138,24 @@ if __name__== '__main__':
                             print("File is not a supported disk image type.")
                     selected_images[image['id']] = filename
 
+        print("Patch these disk images?\n")
+        if len(selected_images) == 1:
+            print("%s: %s" % ("Game HDD", selected_images[0]))
+        else:
+            for image in cfg['images']:
+                print("%s: %s" % (image['name'], selected_images[image['id']]))
+
+        confirmation = y_n_input()
+        if confirmation.strip(" ".lower()[0]) == 'n':
+            exit()
+
         # Parse options
         options = {}
         options['delete_all_first'] = False
         for o in cfg['options']:
-            if o['type'] == 'checkbox':
-                print(o['description'], "(y/n)")
-                choice = input(">")
-                while choice not in ('y', 'n'):
-                    print("(y/n)")
-                    choice = input(">")
-                    choice = choice.strip(" ").lower()[0]
+            if o['type'] == 'boolean':
+                print(o['description'])
+                choice = y_n_input()
                 if choice == 'y':
                     options[o['id']] = True
                 else:
@@ -135,6 +168,12 @@ if __name__== '__main__':
             image = cfg['images'][i]
             disk_directory = pathsplit(disk_path)[0]
             DiskImage = Disk(disk_path, backup_folder='backup')
+
+            if not access(disk_path, W_OK):
+                print('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
+                input()
+                exit()
+
             DiskImage.backup()
 
             if DiskImage.extension in HARD_DISK_FORMATS:
@@ -143,7 +182,8 @@ if __name__== '__main__':
                 files = image['floppy']['files']
 
             # Find the right directory to look for the files in.
-            path_in_disk = DiskImage.find_file_dir(files)
+            disk_filenames = [f['name'] for f in files]
+            path_in_disk = DiskImage.find_file_dir(disk_filenames)
 
             for f in files:
                 print(f)
@@ -156,11 +196,11 @@ if __name__== '__main__':
                 if 'type' in f['patch']:
                     if f['patch']['type'] == 'failsafelist':
                         patch_list = f['patch']['list']
-                    elif f['patch']['type'] == 'checkbox':
+                    elif f['patch']['type'] == 'boolean':
                         if options[f['patch']['id']]:
-                            patch_list = [f['patch']['checked'],]
+                            patch_list = [f['patch']['true'],]
                         else:
-                            patch_list = [f['patch']['unchecked'],]
+                            patch_list = [f['patch']['false'],]
                 else:
                     patch_list = [f['patch'],]
 
@@ -179,6 +219,7 @@ if __name__== '__main__':
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
                     print("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+                    input()
                     exit()
 
                 copyfile(extracted_file_path + '_edited', extracted_file_path)
@@ -194,6 +235,7 @@ if __name__== '__main__':
                     except ReadOnlyDiskError:
                         print("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
                         DiskImage.restore_from_backup()
+                        input()
                         exit()
                 for f in files:
                     extracted_file_path = pathjoin(disk_directory, f['name'])
@@ -203,8 +245,7 @@ if __name__== '__main__':
         print("Patching complete! Read the README and enjoy the game.")
 
 
-    #print(listdir('.'))
-
 # Changes made to the json:
 # Removed all 'disabled' disks
 # Could probably get rid of "value" as well
+# Can get rid of 'common' in each image.

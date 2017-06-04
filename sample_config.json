@@ -21,10 +21,10 @@
           {
             "name":"filetopatch2.exe",
             "patch":{                                              // patch can be an object for extra configurability
-              "type":"checkbox",                                   // can be in special or advanced
-              "id":"optionname",                                   // name of option to check
-              "checked":"filetopatch2whenchecked.exe.xdelta",
-              "unchecked":"filetopatch2whenunchecked.exe.xdelta"
+              "type":"boolean",                                    // set by the user in options
+              "id":"optionname",                                   // must match the option's id in options
+              "true":"filetopatch2whentrue.exe.xdelta",
+              "false":"filetopatch2whenfalse.exe.xdelta"
             }
           },
           {
@@ -37,9 +37,6 @@
               ]
             }
           }
-        ],
-        "common":[
-          "Common 1.fdi","Common 1.d88","Common 1-alt.fdi"
         ]
       },
       "hdd": {
@@ -55,22 +52,19 @@
       "floppy": {
         "files":[
           // same as above
-        ],
-        "common":[
-          "Common 2.fdi","Common 2.d88","Common 2.fdi"
         ]
       }
     }
     // add more as needed
   ],
-  "options":[            // combination of "special" and "advanced"
-    {
-      "id":"speedhack",
-      "type":"checkbox",
+  "options":[            // Generally per-game special options, either 
+    {                    // Tough to predict these, so just need to see what comes up in hacking more games.
+      "id":"speedhack",  // But you can use it to use different patches based on user input...
+      "type":"boolean",
       "description": "Faster text speed in cut scenes? (Requires Neko Project II)",
     },
     {
-      "id":"delete_all_first",
+      "id":"delete_all_first",    // an option for space-limited FDIs, like in the Rusty Opening
       "type":"silent",
       "description": "Delete all files on the disk before trying to insert them.",
     }

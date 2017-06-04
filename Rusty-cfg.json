@@ -17,10 +17,10 @@
           {
             "name":"VISUAL.COM",
             "patch":{
-              "type":"checkbox",
+              "type":"boolean",
               "id":"speedhack",
-              "unchecked":"VISUAL.COM.xdelta",
-              "checked":"VISUAL_speedhack.COM.xdelta"
+              "false":"VISUAL.COM.xdelta",
+              "true":"VISUAL_speedhack.COM.xdelta"
             }
           },
           {
@@ -91,9 +91,6 @@
             "name":"BOOT.COM",
             "patch":"BOOT.COM.xdelta"
           }
-        ],
-        "common":[
-          "Rusty (System disk).hdm", "Rusty (System disk).hdm [Alt 1]", "ﾗｽﾃｨ_1"
         ]
       },
       "hdd": {
@@ -101,10 +98,10 @@
           {
             "name":"VISUAL.COM",
             "patch":{
-              "type":"checkbox",
+              "type":"boolean",
               "id":"speedhack",
-              "unchecked":"VISUAL.COM.xdelta",
-              "checked":"VISUAL_speedhack.COM.xdelta"
+              "false":"VISUAL.COM.xdelta",
+              "true":"VISUAL_speedhack.COM.xdelta"
             }
           },
           {
@@ -227,9 +224,6 @@
             "name":"GIRL7A.MAG",
             "patch":"GIRL7A_HD.MAG.xdelta"
           }
-        ],
-        "common": [
-            "Rusty.hdi", "rusty.hdi", "Rusty (19xx)(C-Lab).hdi", "【PC98】Ｒｕｓｔｙ.hdi"
         ]
       }
     },
@@ -279,9 +273,6 @@
             "name":"STAFF7.MGX",
             "patch":"STAFF7_FD.MGX.xdelta"
           }
-        ],
-        "common":[
-            "Rusty (Opening disk).hdm", "ﾗｽﾃｨ_2"
         ]
       }
     },
@@ -295,9 +286,6 @@
             "name":"GIRL2A.MAG",
             "patch":"GIRL2A_FD.MAG.xdelta"
           }
-        ],
-        "common":[
-          "Rusty (Game disk A).hdm", "ﾗｽﾃｨ_3"
         ]
       }
     },
@@ -315,9 +303,6 @@
             "name":"GIRL7A.MAG",
             "patch":"GIRL7A_FD.MAG.xdelta"
           }
-        ],
-        "common":[
-          "Rusty (Game disk B).hdm", "ﾗｽﾃｨ_4"
         ]
       }
     }
@@ -326,7 +311,7 @@
   "options":[
     {
       "id":"speedhack",
-      "type":"checkbox",
+      "type":"boolean",
       "description": "Faster text speed in cut scenes? (Requires Neko Project II)"
     },
     {

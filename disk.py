@@ -11,7 +11,7 @@ from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 
-from lzss import compress
+from romtools.lzss import compress
 
 NDC_PATH = path.abspath(__file__)
 
@@ -140,7 +140,7 @@ class Disk:
         if subdir:
             cmd += '"%s"' % subdir
 
-        print(cmd)
+        #print(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
@@ -154,7 +154,7 @@ class Disk:
 
         return filenames, subdirs
 
-    def find_file_dir(self, files):
+    def find_file_dir(self, filenames):
         """ Traverse the disk dirs to find the one that contains all relevant files.
         """
         dir_queue = ['']
@@ -163,7 +163,7 @@ class Disk:
             this_dir = dir_queue.pop(0)
             this_dir_files, subdirs = self.listdir(this_dir)
 
-            if all([f['name'] in this_dir_files for f in files]):
+            if all([f in this_dir_files for f in filenames]):
                 return this_dir
 
             for d in subdirs:
