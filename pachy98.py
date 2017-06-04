@@ -1,5 +1,5 @@
-import sys
-from os import listdir, remove, getcwd, chdir
+import sys, os
+from os import curdir, listdir, remove, getcwd, chdir
 from shutil import copyfile
 from os import access, W_OK
 from os.path import isfile
@@ -35,6 +35,34 @@ if __name__== '__main__':
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
         chdir(sys._MEIPASS)
+
+
+    frozen = 'not'
+    if getattr(sys, 'frozen', False):
+        frozen = 'ever so'
+        bundle_dir = sys._MEIPASS
+    else:
+        bundle_dir = os.path.dirname(os.path.abspath(__file__))
+
+    print('we are', frozen, 'frozen')
+    print('bundle dir is', bundle_dir)
+    print('sys.argv[0] is', sys.argv[0])
+    print('sys.executable is', sys.executable)
+    print('os.getcwd is', os.getcwd())
+    print('sys.path is', sys.path)
+
+    # It can find the executables just fine right now.
+    # TODO: How can I get it to find both the executables and the data in exe's dir?
+    # Executables, when bundled, are in os.getcwd.
+    # The data is in the same dir as sys.executable.
+    # Do I need to just add the full sys.executable absolute path to all filenames invoked
+    # as arguments???
+    
+
+    """
+    if hasattr(sys, '_MEIPASS'):
+        sys.path += sys._MEIPASS
+    """
 
     print("Pachy98 v0.0.1 by 46 OkuMen")
     with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
