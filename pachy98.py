@@ -1,8 +1,8 @@
-from sys import argv, exit
-from os import listdir, remove
+import sys
+from os import listdir, remove, getcwd, chdir
 from shutil import copyfile
 from os import access, W_OK
-from os.path import isfile, splitext
+from os.path import isfile
 from os.path import split as pathsplit
 from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
@@ -32,6 +32,10 @@ def y_n_input():
 
 
 if __name__== '__main__':
+    exe_dir = getcwd()
+    if hasattr(sys, '_MEIPASS'):
+        chdir(sys._MEIPASS)
+
     print("Pachy98 v0.0.1 by 46 OkuMen")
     with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
         # Load everything into a Unicode string first to handle SJIS text.
@@ -49,9 +53,9 @@ if __name__== '__main__':
         hd_found = False
 
         # ['pachy98.exe', 'arg1', 'arg2',] etc
-        if len(argv) > 1:
+        if len(sys.argv) > 1:
             # Filenames have been provided as arguments.
-            arg_images = argv[1:]
+            arg_images = sys.argv[1:]
 
         # Ensure they're in the right order by checking their contents.
         for image in cfg['images']:
@@ -147,7 +151,7 @@ if __name__== '__main__':
 
         confirmation = y_n_input()
         if confirmation.strip(" ".lower()[0]) == 'n':
-            exit()
+            sys.exit()
 
         # Parse options
         options = {}
@@ -172,7 +176,7 @@ if __name__== '__main__':
             if not access(disk_path, W_OK):
                 print('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
                 input()
-                exit()
+                sys.exit()
 
             DiskImage.backup()
 
@@ -220,7 +224,7 @@ if __name__== '__main__':
                     remove(extracted_file_path + '_edited')
                     print("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
                     input()
-                    exit()
+                    sys.exit()
 
                 copyfile(extracted_file_path + '_edited', extracted_file_path)
                 if not options['delete_all_first']:
@@ -236,7 +240,7 @@ if __name__== '__main__':
                         print("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
                         DiskImage.restore_from_backup()
                         input()
-                        exit()
+                        sys.exit()
                 for f in files:
                     extracted_file_path = pathjoin(disk_directory, f['name'])
                     DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
