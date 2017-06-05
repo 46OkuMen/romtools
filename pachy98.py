@@ -10,13 +10,12 @@ from patch import Patch, PatchChecksumError
 import json
 
 def is_valid_disk_image(filename):
-    # TODO: How to handle directories?
     if filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
     elif len(filename.split('.')) == 1:
         try:
             return is_DIP(filename)
-        except PermissionError:
+        except:
             return False
 
 def y_n_input():
@@ -30,47 +29,51 @@ def y_n_input():
 
     return user_input
 
+def message_wait_close(msg):
+    print(msg)
+    input("Press ENTER to close this patcher.")
+    sys.exit()
+
 
 if __name__== '__main__':
+
+    # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
         chdir(sys._MEIPASS)
 
-
-    frozen = 'not'
-    if getattr(sys, 'frozen', False):
-        frozen = 'ever so'
-        bundle_dir = sys._MEIPASS
-    else:
-        bundle_dir = os.path.dirname(os.path.abspath(__file__))
-
-    print('we are', frozen, 'frozen')
-    print('bundle dir is', bundle_dir)
-    print('sys.argv[0] is', sys.argv[0])
-    print('sys.executable is', sys.executable)
-    print('os.getcwd is', os.getcwd())
-    print('sys.path is', sys.path)
-
-    # It can find the executables just fine right now.
-    # TODO: How can I get it to find both the executables and the data in exe's dir?
-    # Executables, when bundled, are in os.getcwd.
-    # The data is in the same dir as sys.executable.
-    # Do I need to just add the full sys.executable absolute path to all filenames invoked
-    # as arguments???
-    
-
-    """
-    if hasattr(sys, '_MEIPASS'):
-        sys.path += sys._MEIPASS
-    """
+    # All the stuff in the exe's dir should be prepended with this so it can be found.
+    exe_dir = pathsplit(sys.executable)[0]
 
     print("Pachy98 v0.0.1 by 46 OkuMen")
-    with open('Rusty-cfg.json', 'r', encoding='utf-8') as f:
-        # Load everything into a Unicode string first to handle SJIS text.
-        # (Wish there was a slightly easier way)
+
+    # Find the configs and choose one if necessary.
+    configs = [pathjoin(exe_dir, f) for f in listdir(exe_dir) if f.startswith('Pachy98-') and f.endswith('.json')]
+    if len(configs) == 0:
+        message_wait_close('No "Pachy98-*.json" config files were found in this directory.')
+
+    elif len(configs) > 1:
+        print("Multiple Pachy98 json config files found. Which game do you want to patch?")
+        for i, c in enumerate(configs):
+            with open(c, 'r', encoding='utf-8') as f:
+                unicode_safe = f.read()
+                cfg = json.loads(unicode_safe)
+                print("%i) %s" % (i+1, cfg['info']['game']))
+        config_choice = 0
+        while config_choice not in range(1, len(configs)+1):
+            print("Enter a number %i-%i." % (1, len(configs)))
+            try:
+                config_choice = int(input(">"))
+            except ValueError:  # int() on a string: try again
+                pass
+        selected_config = configs[config_choice-1]
+    else:
+        selected_config = configs[0]
+    
+    config_path = pathjoin(exe_dir, selected_config)
+    with open(config_path, 'r', encoding='utf-8') as f:
         unicode_safe = f.read()
         cfg = json.loads(unicode_safe)
-        #cfg = json.load(f)
         info = cfg['info']
         print("Patching: %s (%s) %s by %s ( %s )" % (info['game'], info['language'], info['version'], info['author'], info['authorsite']))
 
@@ -101,18 +104,18 @@ if __name__== '__main__':
             if not image_found:
                 selected_images[image['id']] = None
 
-        images_in_dir = [f for f in listdir('.') if is_valid_disk_image(f)]
+        images_in_dir = [f for f in listdir(exe_dir) if is_valid_disk_image(f)]
+        image_paths_in_dir = [pathjoin(exe_dir, f) for f in images_in_dir]
+        disks_in_dir = [Disk(f) for f in image_paths_in_dir]
 
-        #if len([s for s in  selected_images if s is not None]) == 0:
         # Otherwise, search the directory for common image names
         for image in cfg['images']:
             if image['type'] == 'mixed':
                 hdd_filenames = [f['name'] for f in image['hdd']['files']]
-                for dir_img in images_in_dir:
-                    d = Disk(dir_img)
+                for d in disks_in_dir:
                     try:
                         _ = d.find_file_dir(hdd_filenames)
-                        selected_images = [dir_img,]
+                        selected_images = [d.filename,]
                         hd_found = True
                         break
                     except FileNotFoundError:
@@ -121,14 +124,10 @@ if __name__== '__main__':
                 if not hd_found:
                     floppy_filenames = [f['name'] for f in image['floppy']['files']]
                     floppy_found = False
-                    #for common in image['floppy']['common']:
-                    #    if isfile(common):
-                    for dir_img in images_in_dir:
-                        d = Disk(dir_img)
+                    for d in disks_in_dir:
                         try:
                             _ = d.find_file_dir(floppy_filenames)
-                            selected_images[image['id']] = dir_img
-                            #print(dir_img, "was found in the current directory")
+                            selected_images[image['id']] = d.filename
                             floppy_found = True
                             break
                         except FileNotFoundError:
@@ -141,13 +140,11 @@ if __name__== '__main__':
             elif image['type'] == 'floppy' and not hd_found:
                 floppy_found = False
                 floppy_filenames = [f['name'] for f in image['floppy']['files']]
-                for dir_img in images_in_dir:
-                    d = Disk(dir_img)
+                for d in disks_in_dir:
                     try:
                         _ = d.find_file_dir(floppy_filenames)
-                        selected_images[image['id']] = dir_img
+                        selected_images[image['id']] = d.filename
                         floppy_found = True
-                        print(dir_img, "was found in the current directory")
                         break
                     except FileNotFoundError:
                         pass
@@ -156,7 +153,6 @@ if __name__== '__main__':
                     print("No disk found for '%s'" % image['name'])
                     selected_images[image['id']] = None
 
-        print(selected_images)
         if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
             print("Could not auto-detect all your disks. Close this and drag them all onto Pachy98.EXE, or enter the filenames manually here:")
             for image in cfg['images']:
@@ -164,6 +160,7 @@ if __name__== '__main__':
                     filename = ''
                     while not isfile(filename) or not is_valid_disk_image(filename):
                         filename = input("%s filename:\n>" % image['name'])
+                        filename = pathjoin(exe_dir, filename)
                         if not isfile(filename):
                             print("File doesn't exist.")
                         elif not is_valid_disk_image(filename):
@@ -199,12 +196,11 @@ if __name__== '__main__':
         for i, disk_path in enumerate(selected_images):
             image = cfg['images'][i]
             disk_directory = pathsplit(disk_path)[0]
-            DiskImage = Disk(disk_path, backup_folder='backup')
+            backup_directory = pathjoin(exe_dir, 'backup')
+            DiskImage = Disk(disk_path, backup_folder=backup_directory)
 
             if not access(disk_path, W_OK):
-                print('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
-                input()
-                sys.exit()
+                message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
 
             DiskImage.backup()
 
@@ -218,7 +214,7 @@ if __name__== '__main__':
             path_in_disk = DiskImage.find_file_dir(disk_filenames)
 
             for f in files:
-                print(f)
+                print('Extracting %s...' % f['name'])
                 DiskImage.extract(f['name'], path_in_disk)
                 extracted_file_path = pathjoin(disk_directory, f['name'])
                 copyfile(extracted_file_path, extracted_file_path + '_edited')
@@ -238,10 +234,11 @@ if __name__== '__main__':
 
                 patch_worked = False
                 for patch in patch_list:
-                    patch_filepath = pathjoin('patch', patch)
+                    patch_filepath = pathjoin(exe_dir, 'patch', patch)
                     patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited')
                     try:
                         patchfile.apply()
+                        print("Patching %s..." % f['name'])
                         patch_worked = True
                     except PatchChecksumError:
                         continue
@@ -250,12 +247,11 @@ if __name__== '__main__':
                     DiskImage.restore_from_backup()
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
-                    print("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
-                    input()
-                    sys.exit()
+                    message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
 
                 copyfile(extracted_file_path + '_edited', extracted_file_path)
                 if not options['delete_all_first']:
+                    print("Inserting %s..." % f['name'])
                     DiskImage.insert(extracted_file_path, path_in_disk)
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
@@ -263,18 +259,18 @@ if __name__== '__main__':
             if options['delete_all_first']:
                 for f in files:
                     try:
+                        print("Deleting %s..." % f['name'])
                         DiskImage.delete(f['name'], path_in_disk)
                     except ReadOnlyDiskError:
-                        print("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
                         DiskImage.restore_from_backup()
-                        input()
-                        sys.exit()
+                        message_wait_close("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
                 for f in files:
                     extracted_file_path = pathjoin(disk_directory, f['name'])
+                    print("Inserting %s..." % f['name'])
                     DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
-        print("Patching complete! Read the README and enjoy the game.")
+        message_wait_close("Patching complete! Read the README and enjoy the game.")
 
 
 # Changes made to the json:

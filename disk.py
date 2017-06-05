@@ -28,23 +28,16 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 
 DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
-#def file_to_string(file_path, start=0, length=0):
-#    # Defaults: read full file from start.
-#    # TODO: The default file path for this causes some real problems...
-#    with open(file_path, 'rb') as f:
-#        f.seek(start)
-#        if length:
-#            return f.read(length)
-#        else:
-#            return f.read()
-
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
-    with open(target, 'rb') as f:
-        file_header = f.read(7)
-        print(repr(file_header))
-        print(repr(DIP_HEADER))
-        return file_header == DIP_HEADER
+    try:
+        with open(target, 'rb') as f:
+            file_header = f.read(7)
+            #print(repr(file_header))
+            #print(repr(DIP_HEADER))
+            return file_header == DIP_HEADER
+    except FileNotFoundError:
+        return False
 
 
 class FileNotFoundError(Exception):
@@ -68,8 +61,8 @@ class Disk:
         self.extension = filename.split('.')[-1].lower()
 
         # If there's no extension, it won't get split at the period
-        print(self.extension)
-        print(filename)
+        #print(self.extension)
+        #print(filename)
         if self.extension == filename.lower():
             if is_DIP(self.filename):
                 self.extension = 'dip'
@@ -114,10 +107,10 @@ class Disk:
         else:
             fallback_cmd = None
 
-        try:
-            print(cmd)
-        except:
-            print(repr(cmd))
+        #try:
+        #    print(cmd)
+        #except:
+        #    print(repr(cmd))
 
         try:
             result = check_output(cmd)
@@ -192,10 +185,10 @@ class Disk:
         else:
             fallback_cmd = None
 
-        try:
-            print(cmd)
-        except:
-            print(repr(cmd))
+        #try:
+        #    print(cmd)
+        #except:
+        #    print(repr(cmd))
 
         try:
             result = check_output(cmd)
@@ -222,17 +215,17 @@ class Disk:
         else:
             fallback_cmd = None
 
-        try:
-            print(del_cmd)
-        except:
-            print(repr(del_cmd))
+        #try:
+        #    print(del_cmd)
+        #except:
+        #    print(repr(del_cmd))
 
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
             if fallback_cmd:
                 try:
-                    print("Trying the fallback command:", fallback_cmd)
+                    #print("Trying the fallback command:", fallback_cmd)
                     result = check_output(fallback_cmd)
                 except CalledProcessError:
                     raise ReadOnlyDiskError("Disk is in read-only mode", [])
@@ -256,16 +249,16 @@ class Disk:
         else:
             fallback_cmd = None
 
-        try:
-            print(cmd)
-        except:
-            print(repr(cmd))
+        #try:
+        #    print(cmd)
+        #except:
+        #    print(repr(cmd))
 
         try:
             result = check_output(cmd)
         except CalledProcessError:
             try:
-                print("Trying the fallback command:", fallback_cmd)
+                #print("Trying the fallback command:", fallback_cmd)
                 result = check_output(fallback_cmd)
             except CalledProcessError:
                 raise FileNotFoundError("File not found in disk", [])
