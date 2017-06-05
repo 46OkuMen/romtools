@@ -7,6 +7,7 @@ http://euee.web.fc2.com/tool/nd.html
 
 NDC version is Ver.0 alpha05c 2017/05/04.
 """
+import logging
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
@@ -107,10 +108,7 @@ class Disk:
         else:
             fallback_cmd = None
 
-        #try:
-        #    print(cmd)
-        #except:
-        #    print(repr(cmd))
+        logging.info(cmd)
 
         try:
             result = check_output(cmd)
@@ -133,7 +131,7 @@ class Disk:
         if subdir:
             cmd += '"%s"' % subdir
 
-        #print(cmd)
+        logging.info(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
@@ -185,10 +183,7 @@ class Disk:
         else:
             fallback_cmd = None
 
-        #try:
-        #    print(cmd)
-        #except:
-        #    print(repr(cmd))
+        logging.info(cmd)
 
         try:
             result = check_output(cmd)
@@ -249,10 +244,7 @@ class Disk:
         else:
             fallback_cmd = None
 
-        #try:
-        #    print(cmd)
-        #except:
-        #    print(repr(cmd))
+        logging.info(cmd)
 
         try:
             result = check_output(cmd)

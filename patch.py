@@ -1,6 +1,7 @@
 """
 Utils for creating xdelta patches.
 """
+import logging
 from subprocess import check_output, CalledProcessError
 from shutil import copyfile
 from os import remove
@@ -20,7 +21,7 @@ class Patch:
         if self.edited is None:
             raise Exception
         cmd = 'xdelta3 -f -s "%s" "%s" "%s' % (self.original, self.edited, self.filename)
-        #print(cmd)
+        logging.info(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
@@ -34,7 +35,7 @@ class Patch:
             self.edited = self.original
             self.original = self.original + "_temp"
             cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
-        #print(cmd)
+        logging.info(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
