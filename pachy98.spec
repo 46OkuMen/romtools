@@ -5,8 +5,7 @@ block_cipher = None
 
 a = Analysis(['pachy98.py'],
              pathex=['C:\\Users\\maxsi\\romtools'],
-             binaries=[('NDC.exe', '.'),
-                    ('xdelta3.exe', '.')],
+             binaries=[],
              datas=[('pachy.ico', '.'),],
              hiddenimports=[],
              hookspath=[],

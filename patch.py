@@ -4,7 +4,7 @@ Utils for creating xdelta patches.
 import logging
 from subprocess import check_output, CalledProcessError
 from shutil import copyfile
-from os import remove
+from os import remove, path
 
 class PatchChecksumError(Exception):
     def __init__(self, message, errors):
@@ -12,15 +12,17 @@ class PatchChecksumError(Exception):
 
 class Patch:
     # TODO: Abstract out the need for "edited" by just copying the original file.
-    def __init__(self, original, filename, edited=None):
+    def __init__(self, original, filename, edited=None, xdelta_dir='.'):
         self.original = original
         self.edited = edited
-        self.filename = filename        
+        self.filename = filename
+
+        self.xdelta_path = path.join(xdelta_dir, 'xdelta3')
 
     def create(self):
         if self.edited is None:
             raise Exception
-        cmd = 'xdelta3 -f -s "%s" "%s" "%s' % (self.original, self.edited, self.filename)
+        cmd = '"%s" -f -s "%s" "%s" "%s' % (self.xdelta_path, self.original, self.edited, self.filename)
         logging.info(cmd)
         try:
             result = check_output(cmd)
@@ -29,12 +31,12 @@ class Patch:
 
     def apply(self):
         if self.edited:
-            cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
+            cmd = '"%s" -f -d -s "%s" "%s" "%s"' % (self.xdelta_path, self.original, self.filename, self.edited) # SOURCE OUT TARGET
         else:
             copyfile(self.original, self.original + "_temp")
             self.edited = self.original
             self.original = self.original + "_temp"
-            cmd = 'xdelta3 -f -d -s "%s" "%s" "%s"' % (self.original, self.filename, self.edited) # SOURCE OUT TARGET
+            cmd = '"%s" -f -d -s "%s" "%s" "%s"' % (self.xdelta_path, self.original, self.filename, self.edited) # SOURCE OUT TARGET
         logging.info(cmd)
         try:
             result = check_output(cmd)

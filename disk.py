@@ -14,8 +14,6 @@ from subprocess import check_output, CalledProcessError
 
 from lzss import compress
 
-NDC_PATH = path.abspath(__file__)
-
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
                           'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh']
@@ -38,6 +36,7 @@ def is_DIP(target):
             #print(repr(DIP_HEADER))
             return file_header == DIP_HEADER
     except FileNotFoundError:
+        logging.debug("FileNotFound in is_DIP: %s" % target)
         return False
 
 
@@ -57,7 +56,7 @@ class FileFormatNotSupportedError(Exception):
 
 
 class Disk:
-    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None):
+    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir='.'):
         self.filename = filename
         self.extension = filename.split('.')[-1].lower()
 
@@ -86,11 +85,12 @@ class Disk:
 
         self.dump_excel = dump_excel
         self.pointer_excel = pointer_excel
+        self.ndc_path = path.join(ndc_dir, 'ndc')
 
     def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
         """Figure out if the fallback is necessary from an "extract" command."""
 
-        cmd = 'ndc G "%s" 0 ' % (self.filename)
+        cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
         if path_in_disk:
             cmd += '"%s"' % path.join(path_in_disk, filename)
         else:
@@ -102,7 +102,7 @@ class Disk:
         cmd += ' "' + dest_path + '"'
 
         if fallback_path and not path_in_disk:
-            fallback_cmd = 'ndc G "%s" 0 ' % (self.filename)
+            fallback_cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
             fallback_cmd += '"%s"' % path.join(fallback_path, filename)
             fallback_cmd += ' "' + dest_path + '"'
         else:
@@ -127,7 +127,7 @@ class Disk:
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
-        cmd = 'ndc "%s" 0 ' % (self.filename)
+        cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
             cmd += '"%s"' % subdir
 
@@ -165,7 +165,7 @@ class Disk:
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
-        cmd = 'ndc G "%s" 0 ' % (self.filename)
+        cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
         if path_in_disk:
             cmd +=  '"%s"' % path.join(path_in_disk, filename)
         else:
@@ -177,7 +177,7 @@ class Disk:
         cmd += ' "' + dest_path + '"'
 
         if fallback_path and not path_in_disk:
-            fallback_cmd = 'ndc G "%s" 0 ' % (self.filename)
+            fallback_cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
             fallback_cmd += '"%s"' % path.join(fallback_path, filename)
             fallback_cmd += ' "' + dest_path + '"'
         else:
@@ -198,14 +198,14 @@ class Disk:
 
     def delete(self, filename, path_in_disk=None, fallback_path=None):
         filename_without_path = filename.split('\\')[-1]
-        del_cmd = 'ndc D "%s" 0' % (self.filename)
+        del_cmd = '"%s" D "%s" 0' % (self.ndc_path, self.filename)
         if path_in_disk:
             del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
         else:
             del_cmd += ' "' + filename_without_path  + '"'
 
         if fallback_path and not path_in_disk:
-            fallback_cmd = 'ndc D "%s" 0 ' % (self.filename)
+            fallback_cmd = '"%s" D "%s" 0 ' % (self.ndc_path, self.filename)
             fallback_cmd += '"%s"' % path.join(fallback_path, filename)
         else:
             fallback_cmd = None
@@ -234,12 +234,12 @@ class Disk:
         if delete_original:
             self.delete(filename, path_in_disk, fallback_path=fallback_path)
 
-        cmd = 'ndc P "%s" 0 "%s"' % (self.filename, filepath)
+        cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
 
         if fallback_path and not path_in_disk:
-            fallback_cmd = 'ndc P "%s" 0 "%s"' % (self.filename, filepath)
+            fallback_cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
             fallback_cmd += fallback_path
         else:
             fallback_cmd = None

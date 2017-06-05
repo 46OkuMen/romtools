@@ -1,4 +1,4 @@
-import sys, logging
+import sys, logging, json
 from os import curdir, listdir, remove, getcwd, chdir
 from shutil import copyfile
 from os import access, W_OK
@@ -7,16 +7,48 @@ from os.path import split as pathsplit
 from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
-import json
+
+VALID_OPTION_TYPES = ['boolean', 'silent']
+VALID_SILENT_OPTION_IDS = ['delete_all_first']
+VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
+VALID_PATCH_TYPES = ['boolean', 'failsafelist']
 
 def is_valid_disk_image(filename):
+    logging.info("Checking is_valid_disk_image on %s" % filename)
     if filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
     elif len(filename.split('.')) == 1:
+        logging.info("filename.lower().split('.') length is 1. trying is_DIP now")
         try:
             return is_DIP(filename)
         except:
             return False
+
+def validate_config(cfg):
+    for o in cfg['options']:
+        if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_TYPES):
+            return False
+
+    for i in cfg['images']:
+        if i['type'] not in VALID_IMAGE_TYPES:
+            logger.info("Error in image type %s" % i['type'])
+            return False
+        logging.info("Made it to the t loop")
+        for t in VALID_IMAGE_TYPES:
+            try:
+                logging.info(i[t]['files'])
+                for f in i[t]['files']:
+                    try:
+                        logging.info(f['patch']['type'])
+                        if f['patch']['type'] not in VALID_PATCH_TYPES:
+                            logger.info("Error in patch type %s" % f['patch']['type'])
+                            return False
+                    except TypeError:
+                        continue
+            except KeyError:
+                continue
+    return True
+                
 
 def y_n_input():
     print('(y/n)')
@@ -35,7 +67,7 @@ def message_wait_close(msg):
     sys.exit()
 
 def except_handler(type, value, tb):
-    logger.exception("Uncaught exception: {0}".format(str(value)))
+    logging.exception("Uncaught exception: {0}".format(str(value)))
 
 
 if __name__== '__main__':
@@ -47,6 +79,7 @@ if __name__== '__main__':
 
     # All the stuff in the exe's dir should be prepended with this so it can be found.
     exe_dir = pathsplit(sys.executable)[0]
+    bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
@@ -82,6 +115,10 @@ if __name__== '__main__':
     with open(config_path, 'r', encoding='utf-8') as f:
         unicode_safe = f.read()
     cfg = json.loads(unicode_safe)
+
+    if not validate_config(cfg):
+        message_wait_close("A config option in %s is not supported by this verison of Pachy98. Download a newer version." % selected_config)
+    
     info = cfg['info']
     print("Patching: %s (%s) %s by %s ( %s )" % (info['game'], info['language'], info['version'], info['author'], info['authorsite']))
 
@@ -100,7 +137,7 @@ if __name__== '__main__':
     for image in cfg['images']:
         image_found = False
         for arg_image in arg_images:
-            ArgDisk = Disk(arg_image)
+            ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
             try:
                 disk_filenames = [f['name'] for f in image['floppy']['files']]
                 ArgDisk.find_file_dir(disk_filenames)
@@ -112,26 +149,45 @@ if __name__== '__main__':
         if not image_found:
             selected_images[image['id']] = None
 
-    images_in_dir = [f for f in listdir(exe_dir) if is_valid_disk_image(f)]
-    image_paths_in_dir = [pathjoin(exe_dir, f) for f in images_in_dir]
-    disks_in_dir = [Disk(f) for f in image_paths_in_dir]
+    abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
+    image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
+
+    disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
 
     # Otherwise, search the directory for common image names
-    for image in cfg['images']:
-        if image['type'] == 'mixed':
-            hdd_filenames = [f['name'] for f in image['hdd']['files']]
-            for d in disks_in_dir:
-                try:
-                    _ = d.find_file_dir(hdd_filenames)
-                    selected_images = [d.filename,]
-                    hd_found = True
-                    break
-                except FileNotFoundError:
-                    pass
+    # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
+    if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1:
+        for image in cfg['images']:
+            if image['type'] == 'mixed':
+                hdd_filenames = [f['name'] for f in image['hdd']['files']]
+                for d in disks_in_dir:
+                    try:
+                        _ = d.find_file_dir(hdd_filenames)
+                        selected_images = [d.filename,]
+                        hd_found = True
+                        break
+                    except FileNotFoundError:
+                        pass
 
-            if not hd_found:
-                floppy_filenames = [f['name'] for f in image['floppy']['files']]
+                if not hd_found:
+                    floppy_filenames = [f['name'] for f in image['floppy']['files']]
+                    floppy_found = False
+                    for d in disks_in_dir:
+                        try:
+                            _ = d.find_file_dir(floppy_filenames)
+                            selected_images[image['id']] = d.filename
+                            floppy_found = True
+                            break
+                        except FileNotFoundError:
+                            pass
+
+                    if not floppy_found:
+                        print("No disk found for '%s'" % image['name'])
+                        selected_images[image['id']] = None
+
+            elif image['type'] == 'floppy' and not hd_found:
                 floppy_found = False
+                floppy_filenames = [f['name'] for f in image['floppy']['files']]
                 for d in disks_in_dir:
                     try:
                         _ = d.find_file_dir(floppy_filenames)
@@ -144,22 +200,6 @@ if __name__== '__main__':
                 if not floppy_found:
                     print("No disk found for '%s'" % image['name'])
                     selected_images[image['id']] = None
-
-        elif image['type'] == 'floppy' and not hd_found:
-            floppy_found = False
-            floppy_filenames = [f['name'] for f in image['floppy']['files']]
-            for d in disks_in_dir:
-                try:
-                    _ = d.find_file_dir(floppy_filenames)
-                    selected_images[image['id']] = d.filename
-                    floppy_found = True
-                    break
-                except FileNotFoundError:
-                    pass
-
-            if not floppy_found:
-                print("No disk found for '%s'" % image['name'])
-                selected_images[image['id']] = None
 
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
         print("Could not auto-detect all your disks. Close this and drag them all onto Pachy98.EXE, or enter the filenames manually here:")
@@ -174,6 +214,9 @@ if __name__== '__main__':
                     elif not is_valid_disk_image(filename):
                         print("File is not a supported disk image type.")
                 selected_images[image['id']] = filename
+                if filename.split('.')[-1].lower() in HARD_DISK_FORMATS:
+                    selected_images = [filename,]
+                    break
 
     print("Patch these disk images?\n")
     if len(selected_images) == 1:
@@ -205,7 +248,7 @@ if __name__== '__main__':
         image = cfg['images'][i]
         disk_directory = pathsplit(disk_path)[0]
         backup_directory = pathjoin(exe_dir, 'backup')
-        DiskImage = Disk(disk_path, backup_folder=backup_directory)
+        DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
 
         if not access(disk_path, W_OK):
             message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
@@ -243,10 +286,10 @@ if __name__== '__main__':
             patch_worked = False
             for patch in patch_list:
                 patch_filepath = pathjoin(exe_dir, 'patch', patch)
-                patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited')
+                patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
                 try:
-                    patchfile.apply()
                     print("Patching %s..." % f['name'])
+                    patchfile.apply()
                     patch_worked = True
                 except PatchChecksumError:
                     continue
