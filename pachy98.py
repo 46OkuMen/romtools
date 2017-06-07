@@ -26,7 +26,7 @@ def is_valid_disk_image(filename):
 
 def validate_config(cfg):
     for o in cfg['options']:
-        if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_TYPES):
+        if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_IDS):
             return False
 
     for i in cfg['images']:
