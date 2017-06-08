@@ -152,6 +152,8 @@ if __name__== '__main__':
                 logging.info("It's an HDD")
             except KeyError:
                 pass
+            except FileNotFoundError:
+                pass
 
             if hdd_found:
                 break
@@ -166,8 +168,6 @@ if __name__== '__main__':
 
         if not image_found:
             selected_images[image['id']] = None
-
-    
 
     # Otherwise, search the directory for common image names
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
@@ -220,6 +220,9 @@ if __name__== '__main__':
                     print("No disk found for '%s'" % image['name'])
                     selected_images[image['id']] = None
 
+    if len(arg_images) > 0 and len([i for i in selected_images if i is not None]) != len(arg_images):
+        print("The provided images weren't an entire game, so attempted to autodetect the rest.")
+
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
         print("Could not auto-detect all your disks. Close this and drag them all onto Pachy98.EXE, or enter the filenames manually here:")
         for image in cfg['images']:
@@ -267,8 +270,9 @@ if __name__== '__main__':
         image = cfg['images'][i]
         disk_directory = pathsplit(disk_path)[0]
         backup_directory = pathjoin(exe_dir, 'backup')
+        print("Scanning %s for %s files now..." % (pathsplit(disk_path)[1], info['game']))
         if stat(disk_path).st_size > 100000:
-            print("This is a large disk image, so it may take a while...")
+            print("This is a large disk image, so it may take a few moments...")
         DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
 
         if not access(disk_path, W_OK):
@@ -283,8 +287,11 @@ if __name__== '__main__':
 
         # Find the right directory to look for the files in.
         disk_filenames = [f['name'] for f in files]
-        print("About to look for path_in_dir now")
-        path_in_disk = DiskImage.find_file_dir(disk_filenames)
+        try:
+            keywords = image['hdd']['path_keywords']
+        except KeyError:
+            keywords = []
+        path_in_disk = DiskImage.find_file_dir(disk_filenames, path_keywords=keywords)
 
         for f in files:
             print('Extracting %s...' % f['name'])

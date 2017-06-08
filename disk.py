@@ -127,12 +127,10 @@ class Disk:
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
-        logging.info('About to look at subdir %s' % subdir)
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
             cmd += '"%s"' % subdir
 
-        logging.info("About to log the cmd")
         logging.info(cmd)
         try:
             result = check_output(cmd)
@@ -143,7 +141,6 @@ class Disk:
         result = [r.split(b'\t') for r in result.split(b'\r\n')]
         result = list(filter(lambda x: len(x) == 4, result))
 
-        logging.info("About to decode filenames with sjis")
         filenames = []
         subdirs = []
         for r in result:
@@ -161,7 +158,7 @@ class Disk:
         #logging.info("Subdirs: %s" % subdirs)
         return filenames, subdirs
 
-    def find_file_dir(self, filenames):
+    def find_file_dir(self, filenames, path_keywords=[]):
         """ Traverse the disk dirs to find the one that contains all relevant files.
         """
         dir_queue = ['']
@@ -173,6 +170,15 @@ class Disk:
             if all([f in this_dir_files for f in filenames]):
                 return this_dir
 
+            # Most likely folders are in path_keywords. They can jump the queue
+            for d in subdirs:
+                logging.info("Is %s in %s?" % (d, path_keywords))
+                if d.split('\\')[-1] in path_keywords:
+                    logging.info("%s is in path_keywords" % d)
+                    dir_queue.insert(0, (path.join(this_dir, d)))
+
+            # Then the rest
+            subdirs = [s for s in subdirs if s not in path_keywords]
             for d in subdirs:
                 dir_queue.append(path.join(this_dir, d))
 
