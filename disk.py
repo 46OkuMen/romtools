@@ -127,22 +127,38 @@ class Disk:
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
+        logging.info('About to look at subdir %s' % subdir)
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
             cmd += '"%s"' % subdir
 
+        logging.info("About to log the cmd")
         logging.info(cmd)
         try:
             result = check_output(cmd)
         except CalledProcessError:
             raise FileNotFoundError('Subdirectory not found in disk', [])
 
+        logging.info("About to parse the results")
         result = [r.split(b'\t') for r in result.split(b'\r\n')]
         result = list(filter(lambda x: len(x) == 4, result))
 
-        filenames = [r[0].decode('shift_jis') for r in result if r[2] != b'<DIR>']
-        subdirs = [r[0].decode('shift_jis') for r in result if r[2] == b'<DIR>' and len(r[0].strip(b'.')) > 0]
+        logging.info("About to decode filenames with sjis")
+        filenames = []
+        subdirs = []
+        for r in result:
+            try:
+                decoded = r[0].decode('shift_jis')
+                if r[2] != b'<DIR>':
+                    filenames.append(decoded)
+                elif r[2] == b'<DIR>' and len(r[0].strip(b'.')) > 0:
+                    subdirs.append(decoded)
+            except UnicodeDecodeError:
+                logging.info("Couldn't decode one of the strings in the folder: %s" % subdir)
+                continue
 
+        #logging.info("Filenames: %s" % filenames)
+        #logging.info("Subdirs: %s" % subdirs)
         return filenames, subdirs
 
     def find_file_dir(self, filenames):

@@ -1,12 +1,13 @@
 import sys, logging, json
-from os import curdir, listdir, remove, getcwd, chdir
+from os import curdir, listdir, remove, getcwd, chdir, access, W_OK, stat
 from shutil import copyfile
-from os import access, W_OK
 from os.path import isfile
 from os.path import split as pathsplit
 from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
+
+VERSION = 'v0.0.1'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -71,7 +72,6 @@ def except_handler(type, value, tb):
 
 
 if __name__== '__main__':
-    
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
@@ -86,7 +86,7 @@ if __name__== '__main__':
     sys.excepthook = except_handler
     logging.info("Log started")
 
-    print("Pachy98 v0.0.1 by 46 OkuMen")
+    print("Pachy98 %s by 46 OkuMen" % VERSION)
 
     # Find the configs and choose one if necessary.
     configs = [pathjoin(exe_dir, f) for f in listdir(exe_dir) if f.startswith('Pachy98-') and f.endswith('.json')]
@@ -134,10 +134,28 @@ if __name__== '__main__':
         arg_images = sys.argv[1:]
 
     # Ensure they're in the right order by checking their contents.
+    hdd_found = False
     for image in cfg['images']:
         image_found = False
+        if hdd_found:
+            break
+
         for arg_image in arg_images:
             ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
+            try:
+                logging.info("Checking if it's a HDD now")
+                disk_filenames = [f['name'] for f in image['hdd']['files']]
+                ArgDisk.find_file_dir(disk_filenames)
+                selected_images = [arg_image,]
+                image_found = True
+                hdd_found = True
+                logging.info("It's an HDD")
+            except KeyError:
+                pass
+
+            if hdd_found:
+                break
+            
             try:
                 disk_filenames = [f['name'] for f in image['floppy']['files']]
                 ArgDisk.find_file_dir(disk_filenames)
@@ -149,14 +167,15 @@ if __name__== '__main__':
         if not image_found:
             selected_images[image['id']] = None
 
-    abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
-    image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
-
-    disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
+    
 
     # Otherwise, search the directory for common image names
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
     if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1:
+        abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
+        image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
+        disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
+
         for image in cfg['images']:
             if image['type'] == 'mixed':
                 hdd_filenames = [f['name'] for f in image['hdd']['files']]
@@ -248,6 +267,8 @@ if __name__== '__main__':
         image = cfg['images'][i]
         disk_directory = pathsplit(disk_path)[0]
         backup_directory = pathjoin(exe_dir, 'backup')
+        if stat(disk_path).st_size > 100000:
+            print("This is a large disk image, so it may take a while...")
         DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
 
         if not access(disk_path, W_OK):
@@ -262,6 +283,7 @@ if __name__== '__main__':
 
         # Find the right directory to look for the files in.
         disk_filenames = [f['name'] for f in files]
+        print("About to look for path_in_dir now")
         path_in_disk = DiskImage.find_file_dir(disk_filenames)
 
         for f in files:
@@ -292,6 +314,7 @@ if __name__== '__main__':
                     patchfile.apply()
                     patch_worked = True
                 except PatchChecksumError:
+                    print("Trying backup patch for %s..." % f['name'])
                     continue
 
             if not patch_worked:
