@@ -29,14 +29,21 @@ DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
+    logging.info("Calling is_DIP on %s" % target)
     try:
         with open(target, 'rb') as f:
             file_header = f.read(7)
             #print(repr(file_header))
             #print(repr(DIP_HEADER))
+            logging.info("%s: DIP header" % DIP_HEADER)
+            logging.info("%s: this header" % file_header)
+            logging.info("The header evaluation was %s" % (file_header == DIP_HEADER))
             return file_header == DIP_HEADER
+    except IOError:
+        logging.info("Permission denied on %s" % target)
+        return False
     except FileNotFoundError:
-        logging.debug("FileNotFound in is_DIP: %s" % target)
+        logging.info("FileNotFound in is_DIP: %s" % target)
         return False
 
 
@@ -58,12 +65,17 @@ class FileFormatNotSupportedError(Exception):
 class Disk:
     def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir='.'):
         self.filename = filename
-        self.extension = filename.split('.')[-1].lower()
+
+        just_filename = path.split(filename)[1]
+        self.extension = path.splitext(just_filename)[1].lstrip('.').lower()
+        #self.extension = filename.split('.')[-1].lower()
 
         # If there's no extension, it won't get split at the period
         #print(self.extension)
         #print(filename)
-        if self.extension == filename.lower():
+        #logging.info('self.extension: %s' % self.extension)
+        #logging.info('lowered just_filename: %s' % just_filename.lower())
+        if len(self.extension) == 0:
             if is_DIP(self.filename):
                 self.extension = 'dip'
 
@@ -137,7 +149,6 @@ class Disk:
         except CalledProcessError:
             raise FileNotFoundError('Subdirectory not found in disk', [])
 
-        logging.info("About to parse the results")
         result = [r.split(b'\t') for r in result.split(b'\r\n')]
         result = list(filter(lambda x: len(x) == 4, result))
 

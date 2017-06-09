@@ -7,7 +7,7 @@ from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.0.1'
+VERSION = 'v0.4.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -16,14 +16,12 @@ VALID_PATCH_TYPES = ['boolean', 'failsafelist']
 
 def is_valid_disk_image(filename):
     logging.info("Checking is_valid_disk_image on %s" % filename)
-    if filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
+    just_filename = pathsplit(filename)[1]
+    if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
-    elif len(filename.split('.')) == 1:
-        logging.info("filename.lower().split('.') length is 1. trying is_DIP now")
-        try:
-            return is_DIP(filename)
-        except:
-            return False
+    elif len(just_filename.split('.')) == 1:
+        logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
+        return is_DIP(filename)
 
 def validate_config(cfg):
     for o in cfg['options']:
@@ -32,7 +30,7 @@ def validate_config(cfg):
 
     for i in cfg['images']:
         if i['type'] not in VALID_IMAGE_TYPES:
-            logger.info("Error in image type %s" % i['type'])
+            logging.info("Error in image type %s" % i['type'])
             return False
         logging.info("Made it to the t loop")
         for t in VALID_IMAGE_TYPES:
@@ -42,7 +40,7 @@ def validate_config(cfg):
                     try:
                         logging.info(f['patch']['type'])
                         if f['patch']['type'] not in VALID_PATCH_TYPES:
-                            logger.info("Error in patch type %s" % f['patch']['type'])
+                            logging.info("Error in patch type %s" % f['patch']['type'])
                             return False
                     except TypeError:
                         continue
@@ -143,9 +141,14 @@ if __name__== '__main__':
         for arg_image in arg_images:
             ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
             try:
+                path_keywords = image['hdd']['path_keywords']
+            except KeyError:
+                path_keywords = []
+
+            try:
                 logging.info("Checking if it's a HDD now")
                 disk_filenames = [f['name'] for f in image['hdd']['files']]
-                ArgDisk.find_file_dir(disk_filenames)
+                ArgDisk.find_file_dir(disk_filenames, path_keywords)
                 selected_images = [arg_image,]
                 image_found = True
                 hdd_found = True
@@ -173,15 +176,21 @@ if __name__== '__main__':
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
     if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1:
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
+        logging.info("files in exe_dir: %s" % listdir(exe_dir))
         image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
+        logging.info("images in exe_dir: %s" % image_paths_in_dir)
         disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
 
         for image in cfg['images']:
             if image['type'] == 'mixed':
                 hdd_filenames = [f['name'] for f in image['hdd']['files']]
+                try:
+                    path_keywords = image['hdd']['path_keywords']
+                except KeyError:
+                    path_keywords = []
                 for d in disks_in_dir:
                     try:
-                        _ = d.find_file_dir(hdd_filenames)
+                        _ = d.find_file_dir(hdd_filenames, path_keywords)
                         selected_images = [d.filename,]
                         hd_found = True
                         break
@@ -270,14 +279,12 @@ if __name__== '__main__':
         image = cfg['images'][i]
         disk_directory = pathsplit(disk_path)[0]
         backup_directory = pathjoin(exe_dir, 'backup')
-        print("Scanning %s for %s files now..." % (pathsplit(disk_path)[1], info['game']))
-        if stat(disk_path).st_size > 100000:
-            print("This is a large disk image, so it may take a few moments...")
         DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
 
         if not access(disk_path, W_OK):
             message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg['images'][i]['name'])
 
+        print("Backing up %s to %s now..." % (disk_path, backup_directory))
         DiskImage.backup()
 
         if DiskImage.extension in HARD_DISK_FORMATS:
@@ -291,6 +298,10 @@ if __name__== '__main__':
             keywords = image['hdd']['path_keywords']
         except KeyError:
             keywords = []
+        print("Scanning %s for %s files now..." % (pathsplit(disk_path)[1], info['game']))
+        if stat(disk_path).st_size > 100000000:
+            print("This is a large disk image, so it may take a few moments...")
+
         path_in_disk = DiskImage.find_file_dir(disk_filenames, path_keywords=keywords)
 
         for f in files:
