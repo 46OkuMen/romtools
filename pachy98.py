@@ -7,7 +7,7 @@ from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.4.0'
+VERSION = 'v0.6.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -72,12 +72,14 @@ def except_handler(type, value, tb):
 if __name__== '__main__':
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
+    print(exe_dir)
     if hasattr(sys, '_MEIPASS'):
         chdir(sys._MEIPASS)
-
-    # All the stuff in the exe's dir should be prepended with this so it can be found.
-    exe_dir = pathsplit(sys.executable)[0]
-    bin_dir = pathjoin(exe_dir, 'bin')
+        # All the stuff in the exe's dir should be prepended with this so it can be found.
+        exe_dir = pathsplit(sys.executable)[0]
+        bin_dir = pathjoin(exe_dir, 'bin')
+    else:
+        bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
@@ -148,26 +150,21 @@ if __name__== '__main__':
             try:
                 logging.info("Checking if it's a HDD now")
                 disk_filenames = [f['name'] for f in image['hdd']['files']]
-                ArgDisk.find_file_dir(disk_filenames, path_keywords)
-                selected_images = [arg_image,]
-                image_found = True
-                hdd_found = True
-                logging.info("It's an HDD")
+                if ArgDisk.find_file_dir(disk_filenames):
+                    selected_images = [arg_image,]
+                    image_found = True
+                    hdd_found = True
+                    logging.info("It's an HDD")
             except KeyError:
-                pass
-            except FileNotFoundError:
                 pass
 
             if hdd_found:
                 break
             
-            try:
-                disk_filenames = [f['name'] for f in image['floppy']['files']]
-                ArgDisk.find_file_dir(disk_filenames)
+            disk_filenames = [f['name'] for f in image['floppy']['files']]
+            if ArgDisk.find_file_dir(disk_filenames):
                 selected_images[image['id']] = arg_image
                 image_found = True
-            except FileNotFoundError:
-                continue
 
         if not image_found:
             selected_images[image['id']] = None
@@ -175,6 +172,7 @@ if __name__== '__main__':
     # Otherwise, search the directory for common image names
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
     if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1:
+        print("Looking for %s disk images in this directory..." % info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
         logging.info("files in exe_dir: %s" % listdir(exe_dir))
         image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
@@ -189,25 +187,19 @@ if __name__== '__main__':
                 except KeyError:
                     path_keywords = []
                 for d in disks_in_dir:
-                    try:
-                        _ = d.find_file_dir(hdd_filenames, path_keywords)
+                    if d.find_file_dir(hdd_filenames) is not None:
                         selected_images = [d.filename,]
                         hd_found = True
                         break
-                    except FileNotFoundError:
-                        pass
 
                 if not hd_found:
                     floppy_filenames = [f['name'] for f in image['floppy']['files']]
                     floppy_found = False
                     for d in disks_in_dir:
-                        try:
-                            _ = d.find_file_dir(floppy_filenames)
+                        if d.find_file_dir(floppy_filenames) is not None:
                             selected_images[image['id']] = d.filename
                             floppy_found = True
                             break
-                        except FileNotFoundError:
-                            pass
 
                     if not floppy_found:
                         print("No disk found for '%s'" % image['name'])
@@ -217,13 +209,11 @@ if __name__== '__main__':
                 floppy_found = False
                 floppy_filenames = [f['name'] for f in image['floppy']['files']]
                 for d in disks_in_dir:
-                    try:
-                        _ = d.find_file_dir(floppy_filenames)
+
+                    if d.find_file_dir(floppy_filenames) is not None:
                         selected_images[image['id']] = d.filename
                         floppy_found = True
                         break
-                    except FileNotFoundError:
-                        pass
 
                 if not floppy_found:
                     print("No disk found for '%s'" % image['name'])
@@ -302,7 +292,8 @@ if __name__== '__main__':
         if stat(disk_path).st_size > 100000000:
             print("This is a large disk image, so it may take a few moments...")
 
-        path_in_disk = DiskImage.find_file_dir(disk_filenames, path_keywords=keywords)
+        path_in_disk = DiskImage.find_file_dir(disk_filenames)
+        print(path_in_disk)
 
         for f in files:
             print('Extracting %s...' % f['name'])
@@ -324,7 +315,7 @@ if __name__== '__main__':
                 patch_list = [f['patch'],]
 
             patch_worked = False
-            for patch in patch_list:
+            for i, patch in enumerate(patch_list):
                 patch_filepath = pathjoin(exe_dir, 'patch', patch)
                 patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
                 try:
@@ -332,7 +323,8 @@ if __name__== '__main__':
                     patchfile.apply()
                     patch_worked = True
                 except PatchChecksumError:
-                    print("Trying backup patch for %s..." % f['name'])
+                    if i < len(patch_list) - 1:
+                        print("Trying backup patch for %s..." % f['name'])
                     continue
 
             if not patch_worked:

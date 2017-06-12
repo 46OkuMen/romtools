@@ -5,7 +5,7 @@ so we have to use a rather obscure Japanese utility called NDC.exe, found here:
 
 http://euee.web.fc2.com/tool/nd.html
 
-NDC version is Ver.0 alpha05c 2017/05/04.
+NDC version is Ver.0 alpha05d 2017/06/11.
 """
 import logging
 from os import path, pardir, remove, mkdir
@@ -102,6 +102,8 @@ class Disk:
     def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
         """Figure out if the fallback is necessary from an "extract" command."""
 
+        # TODO: Deprecate this. No longer needed with pachy98's 'failsafelist' patch type.
+
         cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
         if path_in_disk:
             cmd += '"%s"' % path.join(path_in_disk, filename)
@@ -169,9 +171,10 @@ class Disk:
         #logging.info("Subdirs: %s" % subdirs)
         return filenames, subdirs
 
+    # Old method based on disk traversal, before ndc implemented the 'fa' command
+    """
     def find_file_dir(self, filenames, path_keywords=[]):
-        """ Traverse the disk dirs to find the one that contains all relevant files.
-        """
+    #Traverse the disk dirs to find the one that contains all relevant files.
         dir_queue = ['']
 
         while dir_queue:
@@ -194,6 +197,42 @@ class Disk:
                 dir_queue.append(path.join(this_dir, d))
 
         raise FileNotFoundError("Could not find all the files in the same dir.", [])
+    """
+
+    def find_file(self, target_file):
+        cmd = '"%s" fa "%s" 0 "" "%s"' % (self.ndc_path, self.filename, target_file)
+        logging.info(cmd)
+
+        try:
+            result = check_output(cmd)
+        except CalledProcessError:
+            return None
+        result_hits = result.split(b'\r\n')
+        result_hit_paths = [r.split(b'\t')[0] for r in result_hits]
+        result_hit_paths = result_hit_paths[:-2]    # remove weird last two outputs
+        #print(result_hit_paths)
+        result_hit_dirs = [r[:-1*(len(target_file))] for r in result_hit_paths]
+        #print(result_hit_dirs)
+        if result_hit_paths and not result_hit_dirs:
+            result_hit_dirs = [b'']
+        # Returns an empty ilst if they're not found...
+        return result_hit_dirs
+
+        # How to handle files that are in the root?
+
+    def find_file_dir(self, target_filenames, path_keywords=[]):
+        # path_keywords not implemented
+        target_find_output = [self.find_file(t) for t in target_filenames]
+        common_dirs = target_find_output[0]
+        for t in target_find_output:
+            for d in common_dirs:
+                if d not in t:
+                    common_dirs.remove(d)
+
+        if len(common_dirs) == 0:
+            return None
+        else:
+            return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
 
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
