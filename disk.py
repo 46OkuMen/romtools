@@ -11,7 +11,6 @@ import logging
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from datetime import now
 
 from lzss import compress
 
@@ -30,21 +29,21 @@ DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
-    logging.info("Calling is_DIP on %s" % target)
+    #logging.info("Calling is_DIP on %s" % target)
     try:
         with open(target, 'rb') as f:
             file_header = f.read(7)
             #print(repr(file_header))
             #print(repr(DIP_HEADER))
-            logging.info("%s: DIP header" % DIP_HEADER)
-            logging.info("%s: this header" % file_header)
-            logging.info("The header evaluation was %s" % (file_header == DIP_HEADER))
+            #logging.info("%s: DIP header" % DIP_HEADER)
+            #logging.info("%s: this header" % file_header)
+            #logging.info("The header evaluation was %s" % (file_header == DIP_HEADER))
             return file_header == DIP_HEADER
     except IOError:
-        logging.info("Permission denied on %s" % target)
+        #logging.info("Permission denied on %s" % target)
         return False
     except FileNotFoundError:
-        logging.info("FileNotFound in is_DIP: %s" % target)
+        #logging.info("FileNotFound in is_DIP: %s" % target)
         return False
 
 
@@ -92,9 +91,17 @@ class Disk:
             if not path.isdir(backup_folder):
                 mkdir(backup_folder)
             self._backup_filename = path.join(backup_folder, path.basename(self.filename))
-            if path.isfile(self._backup_filename):
-                time_suffix = now().strftime("%I:%M%p-%m-%d-%y")
-                self._backup_filename = self._backup_filename.replace(self.extension, time_suffix + '.' + self.extension)
+
+        #print(self._backup_filename)
+        #print(path.isfile(self._backup_filename))
+        counter = 0
+        while path.isfile(self._backup_filename):
+            original = just_filename.split('.')[0]
+            counter += 1
+            if counter > 1:
+                self._backup_filename = self._backup_filename.replace('-' + str(counter-1).zfill(2), '-' + str(counter).zfill(2))
+            else:
+                self._backup_filename = self._backup_filename.replace(original, original + "-" + str(counter).zfill(2))
 
         # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))

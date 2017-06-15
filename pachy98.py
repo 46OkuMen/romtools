@@ -7,7 +7,7 @@ from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.6.0'
+VERSION = 'v0.7.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -54,7 +54,7 @@ def y_n_input():
     user_input = input(">")
     user_input = user_input.strip(" ").lower()[0]
     while user_input not in ('y', 'n'):
-        print('(y/n')
+        print('(y/n)')
         user_input = input(">")
         user_input = user_input.strip(" ").lower()[0]
 
@@ -239,7 +239,7 @@ if __name__== '__main__':
                     selected_images = [filename,]
                     break
 
-    print("Patch these disk images?\n")
+    print("\nPatch these disk images?")
     if len(selected_images) == 1:
         print("%s: %s" % ("Game HDD", selected_images[0]))
     else:
