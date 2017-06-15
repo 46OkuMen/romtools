@@ -11,6 +11,7 @@ import logging
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
+from datetime import now
 
 from lzss import compress
 
@@ -63,7 +64,7 @@ class FileFormatNotSupportedError(Exception):
 
 
 class Disk:
-    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir='.'):
+    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir=''):
         self.filename = filename
 
         just_filename = path.split(filename)[1]
@@ -91,6 +92,9 @@ class Disk:
             if not path.isdir(backup_folder):
                 mkdir(backup_folder)
             self._backup_filename = path.join(backup_folder, path.basename(self.filename))
+            if path.isfile(self._backup_filename):
+                time_suffix = now().strftime("%I:%M%p-%m-%d-%y")
+                self._backup_filename = self._backup_filename.replace(self.extension, time_suffix + '.' + self.extension)
 
         # if not path.isdir(path.join(self.dir, 'backup')):
         #    mkdir(path.join(self.dir, 'backup'))
@@ -287,6 +291,8 @@ class Disk:
         #except:
         #    print(repr(del_cmd))
 
+        #print(del_cmd)
+
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
@@ -316,6 +322,7 @@ class Disk:
         else:
             fallback_cmd = None
 
+        #print(cmd)
         logging.info(cmd)
 
         try:
