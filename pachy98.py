@@ -1,13 +1,13 @@
 import sys, logging, json
 from os import curdir, listdir, remove, getcwd, chdir, access, W_OK, stat
 from shutil import copyfile
-from os.path import isfile
+from os.path import isfile, isdir
 from os.path import split as pathsplit
 from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.9.0'
+VERSION = 'v0.10.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -228,12 +228,23 @@ if __name__== '__main__':
     #if len(arg_images) > 0 and len([i for i in selected_images if i is not None]) != len(arg_images):
     #    print("The provided images weren't an entire game, so attempted to autodetect the rest.")
 
-    patch_files_directly = False
-    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
-        # That was all futile. Last ditch effort: Look for the plain files in the dir
-        patch_files_directly = all([a in listdir(exe_dir) for a in cfg.all_filenames])
+    patch_plain_files = False
+    plain_files_dir = '.'
 
-    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_files_directly:
+    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
+        # That was all futile. Last ditch effort: Look for the plain files in the dir and subdirs
+        patch_plain_files = all([a in listdir(exe_dir) for a in cfg.all_filenames])
+        if not patch_plain_files:
+            # Also look in subdirs one deep.
+            exe_subdirs = [s for s in listdir(exe_dir) if isdir(s) and s != 'backup']
+            for subdir in exe_subdirs:
+                patch_plain_files = all([a in listdir(subdir) for a in cfg.all_filenames])
+                if patch_plain_files:
+                    plain_files_dir = subdir
+                    print(subdir)
+                    break
+
+    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
         print("Could not auto-detect all your disks. Close this and drag them all onto Pachy98.EXE, or enter the filenames manually here:")
         for image in cfg.images:
             if selected_images[image['id']] is None:
@@ -250,7 +261,7 @@ if __name__== '__main__':
                     selected_images = [filename,]
                     break
 
-    if not patch_files_directly:
+    if not patch_plain_files:
         print("\nPatch these disk images?")
         if len(selected_images) == 1:
             print("%s: %s" % ("Game HDD", selected_images[0]))
@@ -258,7 +269,7 @@ if __name__== '__main__':
             for image in cfg.images:
                 print("%s: %s" % (image['name'], selected_images[image['id']]))
     else:
-        print("\nGame images not found. Patch your gamefiles in this folder directly?")
+        print("\nGame images not found. Patch your gamefiles in the folder '%s' directly?" % plain_files_dir)
         print(cfg.all_filenames)
 
     confirmation = y_n_input()
@@ -281,7 +292,7 @@ if __name__== '__main__':
                 options['delete_all_first'] = True
 
     backup_directory = pathjoin(exe_dir, 'backup')
-    if not patch_files_directly:
+    if not patch_plain_files:
         for i, disk_path in enumerate(selected_images):
             image = cfg.images[i]
             disk_directory = pathsplit(disk_path)[0]
@@ -291,7 +302,7 @@ if __name__== '__main__':
                 message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg.images[i]['name'])
 
             print("Backing up %s to %s now..." % (disk_path, backup_directory))
-            if stat(disk_path).st_size > 100000000:
+            if stat(disk_path).st_size > 100000000:  # 100 MB+ disk images
                 print("This is a large disk image, so it may take a few moments...")
             DiskImage.backup()
 
@@ -337,7 +348,6 @@ if __name__== '__main__':
                     except PatchChecksumError:
                         if i < len(patch_list) - 1:
                             print("Trying backup patch for %s..." % f['name'])
-                        continue
 
                 if not patch_worked:
                     print("Error. Restoring from backup...")
@@ -370,11 +380,11 @@ if __name__== '__main__':
                     remove(extracted_file_path + '_edited')
     else:
         for f in cfg.hdd_files:
-            # Patch fhe files without doing any extracting stuff, but consider options!
-            # Failsafe list. Patches to try in order.
+            f_path = pathjoin(plain_files_dir, f['name'])
+            # Patch fhe files without doing any extracting stuff, but still consider options!
             print("Backing up %s..." % f['name'])
-            copyfile(f['name'], pathjoin(backup_directory, f['name']))
-            copyfile(f['name'], f['name'] + '_edited')
+            copyfile(f_path, pathjoin(backup_directory, f['name']))
+            copyfile(f_path, f['name'] + '_edited')
             patch_list = []
             if 'type' in f['patch']:
                 if f['patch']['type'] == 'failsafelist':
@@ -390,26 +400,27 @@ if __name__== '__main__':
             patch_worked = False
             for i, patch in enumerate(patch_list):
                 patch_filepath = pathjoin(exe_dir, 'patch', patch)
-                patchfile = Patch(f['name'], patch_filepath, edited=f['name'] + '_edited', xdelta_dir=bin_dir)
+                patchfile = Patch(f_path, patch_filepath, edited=f['name'] + '_edited', xdelta_dir=bin_dir)
                 try:
                     print("Patching %s..." % f['name'])
                     patchfile.apply()
                     patch_worked = True
                 except PatchChecksumError:
-                    if i < len(patch_list) - 1:
-                        print("Trying backup patch for %s..." % f['name'])
-                    continue
-            try:
-                copyfile(f['name'] + '_edited', f['name'])
-            except PermissionError:
-                # TODO: Restore the previous files from backup.
-                remove(f['name'] + '_edited')
-                message_wait_close("Permission error. Make sure the file %s is not read-only." % f['name'])
-            remove(f['name'] + '_edited')
+                    if i < len(patch_list):
+                        print("Trying failsafe patch for %s..." % f['name'])
 
             if not patch_worked:
                 #print("Error. Restoring from backup...")
                 #DiskImage.restore_from_backup()
                 remove(f['name'] + '_edited')
                 message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+
+            try:
+                copyfile(f['name'] + '_edited', f_path)
+            except PermissionError:
+                # TODO: Restore the previous files from backup.
+                remove(f['name'] + '_edited')
+                message_wait_close("Permission error. Make sure the file %s is not read-only." % f_path)
+            remove(f['name'] + '_edited')
+
     message_wait_close("Patching complete! Read the README and enjoy the game.")
