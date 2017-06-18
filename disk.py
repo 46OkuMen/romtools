@@ -12,11 +12,12 @@ from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 
-from lzss import compress
+from romtools.lzss import compress
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
-                          'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh']
+                          'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh',
+                          'dcp']
 
 HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # HDI: anex86

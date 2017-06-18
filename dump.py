@@ -157,7 +157,7 @@ class DumpExcel(object):
         self.workbook = load_workbook(self.path)
         self.control_codes = control_codes
 
-    def get_translations(self, target):
+    def get_translations(self, target, include_blank=False):
         """Get the translations for a file."""
         # Accepts a block or a gamefile as "target".
         trans = []    # translations[offset] = Translation()
@@ -181,11 +181,14 @@ class DumpExcel(object):
             except AttributeError:
                 pass
 
-            if row[3].value is None:
+            if row[3].value is None and not include_blank:
                 continue
 
             japanese = row[1].value.encode('shift-jis')
-            english = row[3].value.encode('shift-jis')
+            if include_blank:
+                english = ""
+            else:
+                english = row[3].value.encode('shift-jis')
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
