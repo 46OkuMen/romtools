@@ -109,6 +109,7 @@ class Disk:
         self.dump_excel = dump_excel
         self.pointer_excel = pointer_excel
         self.ndc_path = path.join(ndc_dir, 'ndc')
+        self._file_dir_cache = {}
 
     def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
         """Figure out if the fallback is necessary from an "extract" command."""
@@ -152,6 +153,11 @@ class Disk:
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
+        try:
+            subdir = subdir.decode()
+        except AttributeError:
+            pass
+        subdir = subdir.rstrip('\\')
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
             cmd += '"%s"' % subdir
@@ -182,34 +188,6 @@ class Disk:
         #logging.info("Subdirs: %s" % subdirs)
         return filenames, subdirs
 
-    # Old method based on disk traversal, before ndc implemented the 'fa' command
-    """
-    def find_file_dir(self, filenames, path_keywords=[]):
-    #Traverse the disk dirs to find the one that contains all relevant files.
-        dir_queue = ['']
-
-        while dir_queue:
-            this_dir = dir_queue.pop(0)
-            this_dir_files, subdirs = self.listdir(this_dir)
-
-            if all([f in this_dir_files for f in filenames]):
-                return this_dir
-
-            # Most likely folders are in path_keywords. They can jump the queue
-            for d in subdirs:
-                logging.info("Is %s in %s?" % (d, path_keywords))
-                if d.split('\\')[-1] in path_keywords:
-                    logging.info("%s is in path_keywords" % d)
-                    dir_queue.insert(0, (path.join(this_dir, d)))
-
-            # Then the rest
-            subdirs = [s for s in subdirs if s not in path_keywords]
-            for d in subdirs:
-                dir_queue.append(path.join(this_dir, d))
-
-        raise FileNotFoundError("Could not find all the files in the same dir.", [])
-    """
-
     def find_file(self, target_file):
         cmd = '"%s" fa "%s" 0 "" "%s"' % (self.ndc_path, self.filename, target_file)
         logging.info(cmd)
@@ -221,9 +199,7 @@ class Disk:
         result_hits = result.split(b'\r\n')
         result_hit_paths = [r.split(b'\t')[0] for r in result_hits]
         result_hit_paths = result_hit_paths[:-2]    # remove weird last two outputs
-        #print(result_hit_paths)
-        result_hit_dirs = [r[:-1*(len(target_file))] for r in result_hit_paths]
-        #print(result_hit_dirs)
+        result_hit_dirs = [r[:-1*(len(target_file))] for r in result_hit_paths] # remove filename
         if result_hit_paths and not result_hit_dirs:
             result_hit_dirs = [b'']
         # Returns an empty ilst if they're not found...
@@ -233,17 +209,21 @@ class Disk:
 
     def find_file_dir(self, target_filenames, path_keywords=[]):
         # path_keywords not implemented
-        target_find_output = [self.find_file(t) for t in target_filenames]
-        common_dirs = target_find_output[0]
-        for t in target_find_output:
-            for d in common_dirs:
-                if d not in t:
-                    common_dirs.remove(d)
+        if tuple(target_filenames) in self._file_dir_cache:
+            return self._file_dir_cache[tuple(target_filenames)]
 
-        if len(common_dirs) == 0:
-            return None
-        else:
-            return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
+        first_find_output = self.find_file(target_filenames[0])
+        for d in first_find_output:
+            d_listdir = self.listdir(d)[0]
+            if all([t in d_listdir for t in target_filenames]):
+                self._file_dir_cache[tuple(target_filenames)] = d.decode('utf-8')
+                return d.decode('utf-8')
+        self._file_dir_cache[tuple(target_filenames)] = None
+        return None
+        #if len(find_first_output) == 0:
+        #    return None
+        #else:
+        #    return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
 
     def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
