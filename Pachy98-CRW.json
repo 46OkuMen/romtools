@@ -257,6 +257,10 @@
           {
             "name":"MAIN_G.UGD",
             "patch":"MAIN_G.UGD.xdelta"
+          },
+          {
+            "name":"T_MOJI.UGD",
+            "patch":"T_MOJI.UGD.xdelta"
           }
         ]
       }
@@ -342,6 +346,10 @@
           {
             "name":"BORNAS.UGD",
             "patch":"BORNAS.UGD.xdelta"
+          },
+          {
+            "name":"T_MOJI.UGD",
+            "patch":"T_MOJI.UGD.xdelta"
           }
         ]
       }

@@ -11,6 +11,7 @@ import logging
 from os import path, pardir, remove, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
+from time import sleep
 
 from lzss import compress
 
@@ -112,45 +113,6 @@ class Disk:
         self.ndc_path = path.join(ndc_dir, 'ndc')
         self._file_dir_cache = {}
 
-    def check_fallback(self, filename, path_in_disk, fallback_path, dest_path=None):
-        """Figure out if the fallback is necessary from an "extract" command."""
-
-        # TODO: Deprecate this. No longer needed with pachy98's 'failsafelist' patch type.
-
-        cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
-        if path_in_disk:
-            cmd += '"%s"' % path.join(path_in_disk, filename)
-        else:
-            cmd += '"%s"' % filename
-
-        if dest_path is None:
-            dest_path = self.dir
-
-        cmd += ' "' + dest_path + '"'
-
-        if fallback_path and not path_in_disk:
-            fallback_cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
-            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
-            fallback_cmd += ' "' + dest_path + '"'
-        else:
-            fallback_cmd = None
-
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-            fallback_necessary = False
-        except CalledProcessError:
-            try:
-                print("Trying the fallback command:", fallback_cmd)
-                result = check_output(fallback_cmd)
-                fallback_necessary = True
-            except CalledProcessError:
-                fallback_necessary = False # Don't use the fallback, it just fails
-
-        # TODO: Cleanup the extracted file        
-        return fallback_necessary
-
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
@@ -214,11 +176,12 @@ class Disk:
             return self._file_dir_cache[tuple(target_filenames)]
 
         first_find_output = self.find_file(target_filenames[0])
-        for d in first_find_output:
-            d_listdir = self.listdir(d)[0]
-            if all([t in d_listdir for t in target_filenames]):
-                self._file_dir_cache[tuple(target_filenames)] = d.decode('utf-8')
-                return d.decode('utf-8')
+        if first_find_output is not None:
+            for d in first_find_output:
+                d_listdir = self.listdir(d)[0]
+                if all([t in d_listdir for t in target_filenames]):
+                    self._file_dir_cache[tuple(target_filenames)] = d.decode('utf-8')
+                    return d.decode('utf-8')
         self._file_dir_cache[tuple(target_filenames)] = None
         return None
         #if len(find_first_output) == 0:
@@ -226,7 +189,7 @@ class Disk:
         #else:
         #    return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
 
-    def extract(self, filename, path_in_disk=None, fallback_path=None, dest_path=None, lzss=False):
+    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
 
         cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
@@ -240,27 +203,16 @@ class Disk:
 
         cmd += ' "' + dest_path + '"'
 
-        if fallback_path and not path_in_disk:
-            fallback_cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
-            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
-            fallback_cmd += ' "' + dest_path + '"'
-        else:
-            fallback_cmd = None
-
         logging.info(cmd)
 
         try:
             result = check_output(cmd)
         except CalledProcessError:
-            try:
-                print("Trying the fallback command:", fallback_cmd)
-                result = check_output(fallback_cmd)
-            except CalledProcessError:
-                raise FileNotFoundError('File not found in disk', [])
+            raise FileNotFoundError('File not found in disk', [])
 
         # return Gamefile(filename, self)
 
-    def delete(self, filename, path_in_disk=None, fallback_path=None):
+    def delete(self, filename, path_in_disk=None):
         filename_without_path = filename.split('\\')[-1]
         del_cmd = '"%s" D "%s" 0' % (self.ndc_path, self.filename)
         if path_in_disk:
@@ -268,59 +220,35 @@ class Disk:
         else:
             del_cmd += ' "' + filename_without_path  + '"'
 
-        if fallback_path and not path_in_disk:
-            fallback_cmd = '"%s" D "%s" 0 ' % (self.ndc_path, self.filename)
-            fallback_cmd += '"%s"' % path.join(fallback_path, filename)
-        else:
-            fallback_cmd = None
-
-        #try:
-        #    print(del_cmd)
-        #except:
-        #    print(repr(del_cmd))
-
-        #print(del_cmd)
-
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
-            if fallback_cmd:
-                try:
-                    #print("Trying the fallback command:", fallback_cmd)
-                    result = check_output(fallback_cmd)
-                except CalledProcessError:
-                    raise ReadOnlyDiskError("Disk is in read-only mode", [])
-            else:
-                raise ReadOnlyDiskError("Disk is in read-only mode", [])
+            raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
-    def insert(self, filepath, path_in_disk=None, fallback_path=None, delete_original=True):
+    def insert(self, filepath, path_in_disk=None, delete_original=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
         if delete_original:
-            self.delete(filename, path_in_disk, fallback_path=fallback_path)
+            self.delete(filename, path_in_disk)
 
         cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
-
-        if fallback_path and not path_in_disk:
-            fallback_cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
-            fallback_cmd += fallback_path
-        else:
-            fallback_cmd = None
 
         #print(cmd)
         logging.info(cmd)
 
         try:
             result = check_output(cmd)
-        except CalledProcessError:
+        except PermissionError:
+            sleep(.5)
             try:
-                #print("Trying the fallback command:", fallback_cmd)
-                result = check_output(fallback_cmd)
+                result = check_output(cmd)
             except CalledProcessError:
                 raise FileNotFoundError("File not found in disk", [])
+        except CalledProcessError:
+            raise FileNotFoundError("File not found in disk", [])
 
     def backup(self):
         copyfile(self.filename, self._backup_filename)

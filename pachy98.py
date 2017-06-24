@@ -7,7 +7,7 @@ from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.10.0'
+VERSION = 'v0.13.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -27,8 +27,79 @@ class Config:
             if i['type'] == 'mixed':
                 self.all_filenames = [f['name'] for f in i['hdd']['files']]
                 self.hdd_files = i['hdd']['files']
+        self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
+
         # TODO: What other stuff do I need easier access to?
-        # validate_config() should be a method of this, and more robust.
+        if not self._validate_config():
+            # TODO: Need a more specific message of what is wrong with it.
+            message_wait_close("A config option in %s is not supported by this verison of Pachy98. Download a newer version." % selected_config)
+        try:
+            self._validate_patch_existence()
+        except FileNotFoundError as e:
+            message_wait_close("This config references a patch %s that doesn't exist." % e)
+
+
+    def _validate_config(self):
+        # TODO: More extensive validation.
+            # Make sure all patches exist in the patch directory
+            # Make sure booleaan id's match those defined by the user
+            # Only one mixed or HDD, and it's in the 0th slot, right?
+        for o in self.options:
+            if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_IDS):
+                return False
+
+        for i in self.images:
+            if i['type'] not in VALID_IMAGE_TYPES:
+                logging.info("Error in image type %s" % i['type'])
+                return False
+            #logging.info("Made it to the t loop")
+            for t in VALID_IMAGE_TYPES:
+                try:
+                    #logging.info(i[t]['files'])
+                    for f in i[t]['files']:
+                        try:
+                            #logging.info(f['patch']['type'])
+                            if f['patch']['type'] not in VALID_PATCH_TYPES:
+                                logging.info("Error in patch type %s" % f['patch']['type'])
+                                return False
+                        except TypeError:
+                            continue
+                except KeyError:
+                    continue
+        return True
+
+    def _validate_patch_existence(self):
+        for i in self.images:
+            for t in VALID_IMAGE_TYPES:
+                try:
+                    for f in i[t]['files']:
+                        try:
+                            patch = f['patch']
+                            try:
+                                if patch['type'] == 'list':
+                                    for p in list:
+                                        patch_path = pathjoin(self.patch_dir, p)
+                                        if not isfile(patch_path):
+                                            return FileNotFoundError(patch_path)
+                                elif patch['type'] == 'boolean':
+                                    true_patch_path = pathjoin(self.patch_dir, patch['true'])
+                                    if not isfile(true_patch_path):
+                                        return FileNotFoundError(true_patch_path)
+                                    false_patch_path = pathjoin(self.patch_dir, patch['false'])
+                                    if not isfile(false_patch_path):
+                                        return FileNotFoundError(false_patch_path)
+                            except TypeError:
+                                # Interprets "type" as a string index if it has no type field.
+                                # This is the case for the normal generic patch.
+                                patch_path = pathjoin(self.patch_dir, f['patch'])
+                                if not isfile(patch_path):
+                                    return FileNotFoundError(patch_path)
+                        except KeyError:
+                            continue
+                except KeyError:
+                    continue
+        return True
+
 
 
 
@@ -57,6 +128,10 @@ def select_config():
             print("Enter a number %i-%i." % (1, len(configs)))
             try:
                 config_choice = int(input(">"))
+            except KeyboardInterrupt:
+                sys.exit()
+            except EOFError:
+                sys.exit()
             except ValueError:  # int() on a string: try again
                 pass
         selected_config = configs[config_choice-1]
@@ -64,43 +139,24 @@ def select_config():
         selected_config = configs[0]
     return selected_config
 
-def validate_config(cfg):
-    # TODO: More extensive validation.
-        # Make sure all patches exist in the patch directory
-        # Make sure booleaan id's match those defined by the user
-        # Only one mixed or HDD, and it's in the 0th slot, right?
-    for o in cfg.options:
-        if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_IDS):
-            return False
-
-    for i in cfg.images:
-        if i['type'] not in VALID_IMAGE_TYPES:
-            logging.info("Error in image type %s" % i['type'])
-            return False
-        #logging.info("Made it to the t loop")
-        for t in VALID_IMAGE_TYPES:
-            try:
-                #logging.info(i[t]['files'])
-                for f in i[t]['files']:
-                    try:
-                        logging.info(f['patch']['type'])
-                        if f['patch']['type'] not in VALID_PATCH_TYPES:
-                            logging.info("Error in patch type %s" % f['patch']['type'])
-                            return False
-                    except TypeError:
-                        continue
-            except KeyError:
-                continue
-    return True
-                
-
 def y_n_input():
     print('(y/n)')
-    user_input = input(">")
+    try:
+        user_input = input(">")
+    except KeyboardInterrupt:
+        sys.exit()
+    except EOFError:
+        sys.exit()
+
     user_input = user_input.strip(" ").lower()[0]
     while user_input not in ('y', 'n'):
         print('(y/n)')
-        user_input = input(">")
+        try:
+            user_input = input(">")
+        except KeyboardInterrupt:
+            sys.exit()
+        except EOFError:
+            sys.exit()
         user_input = user_input.strip(" ").lower()[0]
 
     return user_input
@@ -110,14 +166,16 @@ def message_wait_close(msg):
     input("Press ENTER to close this patcher.")
     sys.exit()
 
-def except_handler(type, value, tb):
-    logging.exception("Uncaught exception: {0}".format(str(value)))
+def except_handler(exc_type, exc_value, exc_traceback):
+    logging.error(
+        "Uncaught exception",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
 
 
 if __name__== '__main__':
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
-    print(exe_dir)
     if hasattr(sys, '_MEIPASS'):
         chdir(sys._MEIPASS)
         # All the stuff in the exe's dir should be prepended with this so it can be found.
@@ -128,7 +186,7 @@ if __name__== '__main__':
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
-    #sys.excepthook = except_handler
+    sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
@@ -137,10 +195,6 @@ if __name__== '__main__':
     config_path = pathjoin(exe_dir, selected_config)
     
     cfg = Config(config_path)
-    print(cfg.info)
-
-    if not validate_config(cfg):
-        message_wait_close("A config option in %s is not supported by this verison of Pachy98. Download a newer version." % selected_config)
     
     print("Patching: %s (%s) %s by %s ( %s )" % (cfg.info['game'], cfg.info['language'], cfg.info['version'], cfg.info['author'], cfg.info['authorsite']))
 
@@ -151,38 +205,50 @@ if __name__== '__main__':
     hd_found = False
 
     # ['pachy98.exe', 'arg1', 'arg2',] etc
+    logging.info("CLI args are: %s" % sys.argv)
     if len(sys.argv) > 1:
         # Filenames have been provided as arguments.
         arg_images = sys.argv[1:]
 
-    # Ensure they're in the right order by checking their contents.
-    hdd_found = False
-    for image in cfg.images:
-        image_found = False
-        if hdd_found:
-            break
+    # Is there a single argument with a dir path?
+    patch_plain_files = False
+    plain_files_dir = '.'
+    plausible_dir_path = pathjoin(exe_dir, arg_images[0])
+    print("Len of arg images: %s, isdir of the first arg_image: %s" % (len(arg_images), isdir(plausible_dir_path)))
+    if len(arg_images) == 1 and isdir(plausible_dir_path):
+        patch_plain_files = True
+        plain_files_dir = plausible_dir_path
+        print("Using plain files dir")
 
-        for arg_image in arg_images:
-            ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
-            if ArgDisk.find_file_dir(cfg.all_filenames):
-                selected_images = [arg_image,]
-                image_found = True
-                hdd_found = True
-
+    # Ensure the arg images are in the right order by checking their contents.
+    else:
+        hdd_found = False
+        for image in cfg.images:
+            image_found = False
             if hdd_found:
                 break
-            
-            disk_filenames = [f['name'] for f in image['floppy']['files']]
-            if ArgDisk.find_file_dir(disk_filenames):
-                selected_images[image['id']] = arg_image
-                image_found = True
 
-        if not image_found:
-            selected_images[image['id']] = None
+            for arg_image in arg_images:
+                ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
+                if ArgDisk.find_file_dir(cfg.all_filenames):
+                    selected_images = [arg_image,]
+                    image_found = True
+                    hdd_found = True
+
+                if hdd_found:
+                    break
+                
+                disk_filenames = [f['name'] for f in image['floppy']['files']]
+                if ArgDisk.find_file_dir(disk_filenames):
+                    selected_images[image['id']] = arg_image
+                    image_found = True
+
+            if not image_found:
+                selected_images[image['id']] = None
 
     # Otherwise, search the directory for common image names
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
-    if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1:
+    if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1 and not patch_plain_files:
         print("Looking for %s disk images in this directory..." % cfg.info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
         #logging.info("files in exe_dir: %s" % listdir(exe_dir))
@@ -228,17 +294,19 @@ if __name__== '__main__':
     #if len(arg_images) > 0 and len([i for i in selected_images if i is not None]) != len(arg_images):
     #    print("The provided images weren't an entire game, so attempted to autodetect the rest.")
 
-    patch_plain_files = False
-    plain_files_dir = '.'
+    # Setting this earlier instead
+    #patch_plain_files = False
+    #plain_files_dir = '.'
 
-    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length):
+    if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
         # That was all futile. Last ditch effort: Look for the plain files in the dir and subdirs
         patch_plain_files = all([a in listdir(exe_dir) for a in cfg.all_filenames])
         if not patch_plain_files:
             # Also look in subdirs one deep.
-            exe_subdirs = [s for s in listdir(exe_dir) if isdir(s) and s != 'backup']
+            exe_subdirs = [s for s in listdir(exe_dir) if isdir(pathjoin(exe_dir, s)) and s not in ('backup', 'bin', 'patch')]
+            logging.info("Looking in these one-deep subdirs: %s" % exe_subdirs)
             for subdir in exe_subdirs:
-                patch_plain_files = all([a in listdir(subdir) for a in cfg.all_filenames])
+                patch_plain_files = all([a in listdir(pathjoin(exe_dir, subdir)) for a in cfg.all_filenames])
                 if patch_plain_files:
                     plain_files_dir = subdir
                     print(subdir)
@@ -250,7 +318,12 @@ if __name__== '__main__':
             if selected_images[image['id']] is None:
                 filename = ''
                 while not isfile(filename) or not is_valid_disk_image(filename):
-                    filename = input("%s filename:\n>" % image['name'])
+                    try:
+                        filename = input("%s filename:\n>" % image['name'])
+                    except KeyboardInterrupt:
+                        sys.exit()
+                    except EOFError:
+                        sys.exit()
                     filename = pathjoin(exe_dir, filename)
                     if not isfile(filename):
                         print("File doesn't exist.")
@@ -269,7 +342,7 @@ if __name__== '__main__':
             for image in cfg.images:
                 print("%s: %s" % (image['name'], selected_images[image['id']]))
     else:
-        print("\nGame images not found. Patch your gamefiles in the folder '%s' directly?" % plain_files_dir)
+        print("\nPatch your gamefiles in the folder '%s' directly?" % plain_files_dir)
         print(cfg.all_filenames)
 
     confirmation = y_n_input()
@@ -299,7 +372,7 @@ if __name__== '__main__':
             DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
 
             if not access(disk_path, W_OK):
-                message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % cfg.images[i]['name'])
+                message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % disk_path)
 
             print("Backing up %s to %s now..." % (disk_path, backup_directory))
             if stat(disk_path).st_size > 100000000:  # 100 MB+ disk images
@@ -313,14 +386,23 @@ if __name__== '__main__':
 
             # Find the right directory to look for the files in.
             disk_filenames = [f['name'] for f in files]
-            print("Scanning %s for %s files now..." % (pathsplit(disk_path)[1], cfg.info['game']))
 
             path_in_disk = DiskImage.find_file_dir(disk_filenames)
-            print(path_in_disk)
+            if path_in_disk is None:
+                message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
 
             for f in files:
                 print('Extracting %s...' % f['name'])
-                DiskImage.extract(f['name'], path_in_disk)
+                try:
+                    DiskImage.extract(f['name'], path_in_disk)
+                except FileNotFoundError:
+                    print("Error. Restoring from backup...")
+                    try:
+                        DiskImage.restore_from_backup()
+                    except PermissionError:
+                        print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
+                        pass
+                    message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
                 extracted_file_path = pathjoin(disk_directory, f['name'])
                 copyfile(extracted_file_path, extracted_file_path + '_edited')
 
@@ -359,7 +441,15 @@ if __name__== '__main__':
                 copyfile(extracted_file_path + '_edited', extracted_file_path)
                 if not options['delete_all_first']:
                     print("Inserting %s..." % f['name'])
-                    DiskImage.insert(extracted_file_path, path_in_disk)
+                    try:
+                        DiskImage.insert(extracted_file_path, path_in_disk)
+                    except ReadOnlyDiskError:
+                        print("Error. Restoring from backup...")
+                        try:
+                            DiskImage.restore_from_backup()
+                        except PermissionError:
+                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
+                        message_wait_close("Error inserting %s. Make sure the disk is not read-only or open in EditDisk/ND, and try again." % f['name'])
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
 
@@ -370,17 +460,29 @@ if __name__== '__main__':
                         DiskImage.delete(f['name'], path_in_disk)
                     except ReadOnlyDiskError:
                         print("Error. Restoring from backup...")
-                        DiskImage.restore_from_backup()
+                        try:
+                            DiskImage.restore_from_backup()
+                        except PermissionError:
+                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
                         message_wait_close("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
                 for f in files:
                     extracted_file_path = pathjoin(disk_directory, f['name'])
                     print("Inserting %s..." % f['name'])
-                    DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
+                    try:
+                        DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
+                    except ReadOnlyDiskError:
+                        print("Error. Restoring from backup...")
+                        try:
+                            DiskImage.restore_from_backup()
+                        except PermissionError:
+                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
+                        message_wait_close("Error inserting", f, ". Make sure the disk is not read-only or open in EditDisk/ND, and try again.")
                     remove(extracted_file_path)
                     remove(extracted_file_path + '_edited')
+
     else:
         for f in cfg.hdd_files:
-            f_path = pathjoin(plain_files_dir, f['name'])
+            f_path = pathjoin(exe_dir, plain_files_dir, f['name'])
             # Patch fhe files without doing any extracting stuff, but still consider options!
             print("Backing up %s..." % f['name'])
             copyfile(f_path, pathjoin(backup_directory, f['name']))
@@ -410,17 +512,15 @@ if __name__== '__main__':
                         print("Trying failsafe patch for %s..." % f['name'])
 
             if not patch_worked:
-                #print("Error. Restoring from backup...")
-                #DiskImage.restore_from_backup()
                 remove(f['name'] + '_edited')
-                message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+                message_wait_close("Patch checksum error. This file is not compatible with this patch, or is already patched.")
 
             try:
                 copyfile(f['name'] + '_edited', f_path)
             except PermissionError:
                 # TODO: Restore the previous files from backup.
                 remove(f['name'] + '_edited')
-                message_wait_close("Permission error. Make sure the file %s is not read-only." % f_path)
+                message_wait_close("Permission error. Make sure the file %s is not read-only or open somewhere." % f_path)
             remove(f['name'] + '_edited')
 
     message_wait_close("Patching complete! Read the README and enjoy the game.")
