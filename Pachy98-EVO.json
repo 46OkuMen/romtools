@@ -3,9 +3,11 @@
   {
     "game": "E.V.O.: The Theory of Evolution",
     "language": "English",
-    "version": "v1.1.1",
+    "version": "v1.1.0",
     "author": "46 OkuMen",
-    "authorsite": "http://46okumen.com"
+    "authorsite": "http://46okumen.com",
+    "versionurl": "http://46okumen.com/translations/EVO/version.txt",
+    "downloadurl": "http://46okumen.com/projects/e-v-o-the-theory-of-evolution"
   },
   "images":[             
     {

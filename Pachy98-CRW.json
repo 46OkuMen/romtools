@@ -3,9 +3,11 @@
   {
     "game": "CRW - Metal Jacket",
     "language": "English",
-    "version": "v0.4.0",
+    "version": "v1.0.0",
     "author": "46 OkuMen",
-    "authorsite": "http://46okumen.com"
+    "authorsite": "http://46okumen.com",
+    "versionurl": "http://46okumen.com/translations/CRW/version.txt",
+    "downloadurl": "http://46okumen.com/projects/crw"
   },
   "images":[             
     {

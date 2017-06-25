@@ -12,6 +12,8 @@ from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, is_valid_disk_image
 from disk import ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
+from urllib.request import urlopen
+from urllib.error import HTTPError
 
 VERSION = 'v0.14.0'
 
@@ -296,6 +298,27 @@ if __name__== '__main__':
     cfg = Config(config_path)
     
     print("Patching: %s (%s) %s by %s ( %s )" % (cfg.info['game'], cfg.info['language'], cfg.info['version'], cfg.info['author'], cfg.info['authorsite']))
+
+    # Check for updates
+    try:
+        version_url = cfg.info['versionurl']
+        print("\nChecking for updates to this translation... ", end="")
+        site_version = urlopen(version_url).readline().decode('utf-8')
+        site_version_int = int(site_version.replace('v', '').replace('.', ''))
+        this_version_int = int(cfg.info['version'].replace('v', '').replace('.', ''))
+        
+        if site_version_int > this_version_int:
+            print("\nThere is a new update (%s) available!" % site_version)
+            print("Get it here: %s\n" % cfg.info['downloadurl'])
+        else:
+            print("It's up to date.")
+    except KeyError:
+        pass
+    except HTTPError:
+        print("\nCouldn't connect to the site. Proceeding with patching normally.")
+    # TODO: Need an exception for timeouts or other url errors.
+
+
 
     expected_image_length = len([i for i in cfg.images if i['type'] != 'disabled'])
 
