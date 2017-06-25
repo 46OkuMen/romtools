@@ -27,7 +27,17 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
 
+# Don't know anything about the DIP format, but this seems to be the common header:
 DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
+
+def is_valid_disk_image(filename):
+    #logging.info("Checking is_valid_disk_image on %s" % filename)
+    just_filename = path.split(filename)[1]
+    if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
+        return True
+    elif len(just_filename.split('.')) == 1:
+        #logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
+        return is_DIP(filename)
 
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
@@ -35,17 +45,10 @@ def is_DIP(target):
     try:
         with open(target, 'rb') as f:
             file_header = f.read(7)
-            #print(repr(file_header))
-            #print(repr(DIP_HEADER))
-            #logging.info("%s: DIP header" % DIP_HEADER)
-            #logging.info("%s: this header" % file_header)
-            #logging.info("The header evaluation was %s" % (file_header == DIP_HEADER))
             return file_header == DIP_HEADER
     except IOError:
-        #logging.info("Permission denied on %s" % target)
         return False
     except FileNotFoundError:
-        #logging.info("FileNotFound in is_DIP: %s" % target)
         return False
 
 
@@ -70,13 +73,8 @@ class Disk:
 
         just_filename = path.split(filename)[1]
         self.extension = path.splitext(just_filename)[1].lstrip('.').lower()
-        #self.extension = filename.split('.')[-1].lower()
 
         # If there's no extension, it won't get split at the period
-        #print(self.extension)
-        #print(filename)
-        #logging.info('self.extension: %s' % self.extension)
-        #logging.info('lowered just_filename: %s' % just_filename.lower())
         if len(self.extension) == 0:
             if is_DIP(self.filename):
                 self.extension = 'dip'
@@ -94,8 +92,6 @@ class Disk:
                 mkdir(backup_folder)
             self._backup_filename = path.join(backup_folder, path.basename(self.filename))
 
-        #print(self._backup_filename)
-        #print(path.isfile(self._backup_filename))
         counter = 0
         while path.isfile(self._backup_filename):
             original = just_filename.split('.')[0]
@@ -254,8 +250,10 @@ class Disk:
         copyfile(self.filename, self._backup_filename)
 
     def restore_from_backup(self):
-        copyfile(self._backup_filename, self.filename)
-        #remove(self._backup_filename)
+        try:
+            copyfile(self._backup_filename, self.filename)
+        except PermissionError:
+            print("Couldn't restore from the backup, but it is located at '%s'." % self._backup_filename)
 
     def __repr__(self):
         return self.filename

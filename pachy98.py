@@ -1,13 +1,19 @@
+"""
+        A command-line patching program for Japanese PC game disk images.
+        Reads a json config file, looks for relevant disk images in 
+"""
+
 import sys, logging, json
-from os import curdir, listdir, remove, getcwd, chdir, access, W_OK, stat
+from os import curdir, listdir, remove, getcwd, chdir, access, W_OK, stat, _exit
 from shutil import copyfile
 from os.path import isfile, isdir
 from os.path import split as pathsplit
 from os.path import join as pathjoin
-from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, ReadOnlyDiskError, FileNotFoundError, is_DIP
+from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, is_valid_disk_image
+from disk import ReadOnlyDiskError, FileNotFoundError, is_DIP
 from patch import Patch, PatchChecksumError
 
-VERSION = 'v0.13.0'
+VERSION = 'v0.14.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -100,17 +106,21 @@ class Config:
                     continue
         return True
 
+def input_catch_keyboard_interrupt(prompt):
+    try:
+        result = input(prompt)
+    except KeyboardInterrupt:
+        exit_quietly()
+    except EOFError:
+        exit_quietly()
+    return result
 
-
-
-def is_valid_disk_image(filename):
-    #logging.info("Checking is_valid_disk_image on %s" % filename)
-    just_filename = pathsplit(filename)[1]
-    if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
-        return True
-    elif len(just_filename.split('.')) == 1:
-        #logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
-        return is_DIP(filename)
+def exit_quietly():
+    # Exit without the pyinstaller "Script failed to execute" message.
+    try:
+        sys.exit()
+    except SystemExit:
+        _exit(0)
 
 def select_config():
     # Find the configs and choose one if necessary.
@@ -127,11 +137,7 @@ def select_config():
         while config_choice not in range(1, len(configs)+1):
             print("Enter a number %i-%i." % (1, len(configs)))
             try:
-                config_choice = int(input(">"))
-            except KeyboardInterrupt:
-                sys.exit()
-            except EOFError:
-                sys.exit()
+                config_choice = int(input_catch_keyboard_interrupt(">"))
             except ValueError:  # int() on a string: try again
                 pass
         selected_config = configs[config_choice-1]
@@ -141,22 +147,12 @@ def select_config():
 
 def y_n_input():
     print('(y/n)')
-    try:
-        user_input = input(">")
-    except KeyboardInterrupt:
-        sys.exit()
-    except EOFError:
-        sys.exit()
+    user_input = input_catch_keyboard_interrupt(">")
 
     user_input = user_input.strip(" ").lower()[0]
     while user_input not in ('y', 'n'):
         print('(y/n)')
-        try:
-            user_input = input(">")
-        except KeyboardInterrupt:
-            sys.exit()
-        except EOFError:
-            sys.exit()
+        user_input = input_catch_keyboard_interrupt(">")
         user_input = user_input.strip(" ").lower()[0]
 
     return user_input
@@ -164,13 +160,118 @@ def y_n_input():
 def message_wait_close(msg):
     print(msg)
     input("Press ENTER to close this patcher.")
-    sys.exit()
+    exit_quietly()
 
 def except_handler(exc_type, exc_value, exc_traceback):
     logging.error(
         "Uncaught exception",
         exc_info=(exc_type, exc_value, exc_traceback)
     )
+
+def patch_images(selected_images, cfg):
+    backup_directory = pathjoin(exe_dir, 'backup')
+    bin_dir = pathjoin(exe_dir, 'bin')
+
+    for i, disk_path in enumerate(selected_images):
+        image = cfg.images[i]
+        disk_directory = pathsplit(disk_path)[0]
+        DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
+
+        if not access(disk_path, W_OK):
+            message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % disk_path)
+
+        print("Backing up %s to %s now..." % (disk_path, backup_directory))
+        if stat(disk_path).st_size > 100000000:  # 100 MB+ disk images
+            print("This is a large disk image, so it may take a few moments...")
+        DiskImage.backup()
+
+        if DiskImage.extension in HARD_DISK_FORMATS:
+            files = image['hdd']['files']
+        else:
+            files = image['floppy']['files']
+
+        # Find the right directory to look for the files in.
+        disk_filenames = [f['name'] for f in files]
+
+        path_in_disk = DiskImage.find_file_dir(disk_filenames)
+        if path_in_disk is None:
+            message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
+
+        for f in files:
+            print('Extracting %s...' % f['name'])
+            try:
+                DiskImage.extract(f['name'], path_in_disk)
+            except FileNotFoundError:
+                print("Error. Restoring from backup...")
+                DiskImage.restore_from_backup()
+                message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
+            extracted_file_path = pathjoin(disk_directory, f['name'])
+            copyfile(extracted_file_path, extracted_file_path + '_edited')
+
+            # Failsafe list. Patches to try in order.
+            patch_list = []
+            if 'type' in f['patch']:
+                if f['patch']['type'] == 'failsafelist':
+                    patch_list = f['patch']['list']
+                elif f['patch']['type'] == 'boolean':
+                    if options[f['patch']['id']]:
+                        patch_list = [f['patch']['true'],]
+                    else:
+                        patch_list = [f['patch']['false'],]
+            else:
+                patch_list = [f['patch'],]
+
+            patch_worked = False
+            for i, patch in enumerate(patch_list):
+                patch_filepath = pathjoin(exe_dir, 'patch', patch)
+                patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
+                try:
+                    print("Patching %s..." % f['name'])
+                    patchfile.apply()
+                    patch_worked = True
+                except PatchChecksumError:
+                    if i < len(patch_list) - 1:
+                        print("Trying backup patch for %s..." % f['name'])
+
+            if not patch_worked:
+                print("Error. Restoring from backup...")
+                DiskImage.restore_from_backup()
+                remove(extracted_file_path)
+                remove(extracted_file_path + '_edited')
+                message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+
+            copyfile(extracted_file_path + '_edited', extracted_file_path)
+            if not options['delete_all_first']:
+                print("Inserting %s..." % f['name'])
+                try:
+                    DiskImage.insert(extracted_file_path, path_in_disk)
+                except ReadOnlyDiskError:
+                    print("Error. Restoring from backup...")
+                    DiskImage.restore_from_backup()
+                    message_wait_close("Error inserting %s. Make sure the disk is not read-only or open in EditDisk/ND, and try again." % f['name'])
+                remove(extracted_file_path)
+                remove(extracted_file_path + '_edited')
+
+        if options['delete_all_first']:
+            for f in files:
+                try:
+                    print("Deleting %s..." % f['name'])
+                    DiskImage.delete(f['name'], path_in_disk)
+                except ReadOnlyDiskError:
+                    print("Error. Restoring from backup...")
+                    DiskImage.restore_from_backup()
+                    message_wait_close("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
+            for f in files:
+                extracted_file_path = pathjoin(disk_directory, f['name'])
+                print("Inserting %s..." % f['name'])
+                try:
+                    DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
+                except ReadOnlyDiskError:
+                    print("Error. Restoring from backup...")
+                    DiskImage.restore_from_backup()
+                    message_wait_close("Error inserting", f, ". Make sure the disk is not read-only or open in EditDisk/ND, and try again.")
+                remove(extracted_file_path)
+                remove(extracted_file_path + '_edited')
 
 
 if __name__== '__main__':
@@ -180,9 +281,7 @@ if __name__== '__main__':
         chdir(sys._MEIPASS)
         # All the stuff in the exe's dir should be prepended with this so it can be found.
         exe_dir = pathsplit(sys.executable)[0]
-        bin_dir = pathjoin(exe_dir, 'bin')
-    else:
-        bin_dir = pathjoin(exe_dir, 'bin')
+    bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
@@ -209,16 +308,15 @@ if __name__== '__main__':
     if len(sys.argv) > 1:
         # Filenames have been provided as arguments.
         arg_images = sys.argv[1:]
+        plausible_dir_path = pathjoin(exe_dir, arg_images[0])
 
     # Is there a single argument with a dir path?
     patch_plain_files = False
     plain_files_dir = '.'
-    plausible_dir_path = pathjoin(exe_dir, arg_images[0])
-    print("Len of arg images: %s, isdir of the first arg_image: %s" % (len(arg_images), isdir(plausible_dir_path)))
     if len(arg_images) == 1 and isdir(plausible_dir_path):
-        patch_plain_files = True
-        plain_files_dir = plausible_dir_path
-        print("Using plain files dir")
+        patch_plain_files = all([a in listdir(plausible_dir_path) for a in cfg.all_filenames])
+        if patch_plain_files:
+            plain_files_dir = plausible_dir_path
 
     # Ensure the arg images are in the right order by checking their contents.
     else:
@@ -315,24 +413,28 @@ if __name__== '__main__':
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
         print("Could not auto-detect all your disks. Close this and drag them all onto Pachy98.EXE, or enter the filenames manually here:")
         for image in cfg.images:
+            if patch_plain_files:
+                break
             if selected_images[image['id']] is None:
                 filename = ''
-                while not isfile(filename) or not is_valid_disk_image(filename):
-                    try:
-                        filename = input("%s filename:\n>" % image['name'])
-                    except KeyboardInterrupt:
-                        sys.exit()
-                    except EOFError:
-                        sys.exit()
+                while not isfile(filename) or not is_valid_disk_image(filename) and not patch_plain_files:
+                    filename = input_catch_keyboard_interrupt("%s filename:\n>" % image['name'])
                     filename = pathjoin(exe_dir, filename)
-                    if not isfile(filename):
+                    if isdir(filename):
+                        subdir = filename
+                        patch_plain_files = all([a in listdir(pathjoin(exe_dir, subdir)) for a in cfg.all_filenames])
+                        if patch_plain_files:
+                            plain_files_dir = subdir
+                            break
+                    elif not isfile(filename):
                         print("File doesn't exist.")
                     elif not is_valid_disk_image(filename):
                         print("File is not a supported disk image type.")
-                selected_images[image['id']] = filename
-                if filename.split('.')[-1].lower() in HARD_DISK_FORMATS:
-                    selected_images = [filename,]
-                    break
+                if not patch_plain_files:
+                    selected_images[image['id']] = filename
+                    if filename.split('.')[-1].lower() in HARD_DISK_FORMATS:
+                        selected_images = [filename,]
+                        break
 
     if not patch_plain_files:
         print("\nPatch these disk images?")
@@ -347,9 +449,10 @@ if __name__== '__main__':
 
     confirmation = y_n_input()
     if confirmation.strip(" ".lower()[0]) == 'n':
-        sys.exit()
+        exit_quietly()
 
     # Get cfg.options related input from the user, then put them in the dict "options".
+    # TODO: Could do this in the Config object instead.
     options = {}
     options['delete_all_first'] = False
     for o in cfg.options:
@@ -366,119 +469,7 @@ if __name__== '__main__':
 
     backup_directory = pathjoin(exe_dir, 'backup')
     if not patch_plain_files:
-        for i, disk_path in enumerate(selected_images):
-            image = cfg.images[i]
-            disk_directory = pathsplit(disk_path)[0]
-            DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
-
-            if not access(disk_path, W_OK):
-                message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % disk_path)
-
-            print("Backing up %s to %s now..." % (disk_path, backup_directory))
-            if stat(disk_path).st_size > 100000000:  # 100 MB+ disk images
-                print("This is a large disk image, so it may take a few moments...")
-            DiskImage.backup()
-
-            if DiskImage.extension in HARD_DISK_FORMATS:
-                files = image['hdd']['files']
-            else:
-                files = image['floppy']['files']
-
-            # Find the right directory to look for the files in.
-            disk_filenames = [f['name'] for f in files]
-
-            path_in_disk = DiskImage.find_file_dir(disk_filenames)
-            if path_in_disk is None:
-                message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
-
-            for f in files:
-                print('Extracting %s...' % f['name'])
-                try:
-                    DiskImage.extract(f['name'], path_in_disk)
-                except FileNotFoundError:
-                    print("Error. Restoring from backup...")
-                    try:
-                        DiskImage.restore_from_backup()
-                    except PermissionError:
-                        print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
-                        pass
-                    message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
-                extracted_file_path = pathjoin(disk_directory, f['name'])
-                copyfile(extracted_file_path, extracted_file_path + '_edited')
-
-                # Failsafe list. Patches to try in order.
-                patch_list = []
-                if 'type' in f['patch']:
-                    if f['patch']['type'] == 'failsafelist':
-                        patch_list = f['patch']['list']
-                    elif f['patch']['type'] == 'boolean':
-                        if options[f['patch']['id']]:
-                            patch_list = [f['patch']['true'],]
-                        else:
-                            patch_list = [f['patch']['false'],]
-                else:
-                    patch_list = [f['patch'],]
-
-                patch_worked = False
-                for i, patch in enumerate(patch_list):
-                    patch_filepath = pathjoin(exe_dir, 'patch', patch)
-                    patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
-                    try:
-                        print("Patching %s..." % f['name'])
-                        patchfile.apply()
-                        patch_worked = True
-                    except PatchChecksumError:
-                        if i < len(patch_list) - 1:
-                            print("Trying backup patch for %s..." % f['name'])
-
-                if not patch_worked:
-                    print("Error. Restoring from backup...")
-                    DiskImage.restore_from_backup()
-                    remove(extracted_file_path)
-                    remove(extracted_file_path + '_edited')
-                    message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
-
-                copyfile(extracted_file_path + '_edited', extracted_file_path)
-                if not options['delete_all_first']:
-                    print("Inserting %s..." % f['name'])
-                    try:
-                        DiskImage.insert(extracted_file_path, path_in_disk)
-                    except ReadOnlyDiskError:
-                        print("Error. Restoring from backup...")
-                        try:
-                            DiskImage.restore_from_backup()
-                        except PermissionError:
-                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
-                        message_wait_close("Error inserting %s. Make sure the disk is not read-only or open in EditDisk/ND, and try again." % f['name'])
-                    remove(extracted_file_path)
-                    remove(extracted_file_path + '_edited')
-
-            if options['delete_all_first']:
-                for f in files:
-                    try:
-                        print("Deleting %s..." % f['name'])
-                        DiskImage.delete(f['name'], path_in_disk)
-                    except ReadOnlyDiskError:
-                        print("Error. Restoring from backup...")
-                        try:
-                            DiskImage.restore_from_backup()
-                        except PermissionError:
-                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
-                        message_wait_close("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
-                for f in files:
-                    extracted_file_path = pathjoin(disk_directory, f['name'])
-                    print("Inserting %s..." % f['name'])
-                    try:
-                        DiskImage.insert(extracted_file_path, path_in_disk, delete_original=False)
-                    except ReadOnlyDiskError:
-                        print("Error. Restoring from backup...")
-                        try:
-                            DiskImage.restore_from_backup()
-                        except PermissionError:
-                            print("Couldn't restore from backup automatically, but the backup is located in the backup folder.")
-                        message_wait_close("Error inserting", f, ". Make sure the disk is not read-only or open in EditDisk/ND, and try again.")
-                    remove(extracted_file_path)
-                    remove(extracted_file_path + '_edited')
+        patch_images(selected_images, cfg=cfg)
 
     else:
         for f in cfg.hdd_files:
