@@ -10,12 +10,12 @@ from os.path import isfile, isdir
 from os.path import split as pathsplit
 from os.path import join as pathjoin
 from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, is_valid_disk_image
-from disk import ReadOnlyDiskError, FileNotFoundError, is_DIP
+from disk import ReadOnlyDiskError, FileNotFoundError, FileFormatNotSupportedError, is_DIP
 from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-VERSION = 'v0.14.0'
+VERSION = 'v0.15.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -311,11 +311,14 @@ if __name__== '__main__':
             print("\nThere is a new update (%s) available!" % site_version)
             print("Get it here: %s\n" % cfg.info['downloadurl'])
         else:
-            print("It's up to date.")
+            print("It's up to date.\n")
     except KeyError:
         pass
     except HTTPError:
-        print("\nCouldn't connect to the site. Proceeding with patching normally.")
+        print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
+    except ValueError:
+        logging.info("This version URL contains something malformed: %s" % version_url)
+        print("\nVersion url didn't contain a current version... Now patching normally.\n")
     # TODO: Need an exception for timeouts or other url errors.
 
 
@@ -415,10 +418,6 @@ if __name__== '__main__':
     #if len(arg_images) > 0 and len([i for i in selected_images if i is not None]) != len(arg_images):
     #    print("The provided images weren't an entire game, so attempted to autodetect the rest.")
 
-    # Setting this earlier instead
-    #patch_plain_files = False
-    #plain_files_dir = '.'
-
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
         # That was all futile. Last ditch effort: Look for the plain files in the dir and subdirs
         patch_plain_files = all([a in listdir(exe_dir) for a in cfg.all_filenames])
@@ -440,7 +439,8 @@ if __name__== '__main__':
                 break
             if selected_images[image['id']] is None:
                 filename = ''
-                while not isfile(filename) or not is_valid_disk_image(filename) and not patch_plain_files:
+                game_files_in_specified_file = False
+                while not game_files_in_specified_file and not patch_plain_files:
                     filename = input_catch_keyboard_interrupt("%s filename:\n>" % image['name'])
                     filename = pathjoin(exe_dir, filename)
                     if isdir(filename):
@@ -449,6 +449,19 @@ if __name__== '__main__':
                         if patch_plain_files:
                             plain_files_dir = subdir
                             break
+                        else:
+                            print("Folder doesn't contain the correct gamefiles.")
+                    elif isfile(filename):
+                        try:
+                            d = Disk(filename, ndc_dir=bin_dir)
+                            if d.find_file_dir(cfg.all_filenames):
+                                game_files_in_specified_file = True
+                            else:
+                                print("Disk image doesn't contain the correct gamefiles, or is currently in use.")
+                        except PermissionError:
+                            print("File couldn't be accessed. Make sure it is not currently in use.")
+                        except FileFormatNotSupportedError:
+                            print("File is not a supported disk image.")
                     elif not isfile(filename):
                         print("File doesn't exist.")
                     elif not is_valid_disk_image(filename):
