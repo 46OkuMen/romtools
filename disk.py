@@ -247,6 +247,7 @@ class Disk:
             raise FileNotFoundError("File not found in disk", [])
 
     def backup(self):
+        # Handle permissionerrors in client applications...
         copyfile(self.filename, self._backup_filename)
 
     def restore_from_backup(self):

@@ -185,7 +185,10 @@ def patch_images(selected_images, cfg):
         print("Backing up %s to %s now..." % (disk_path, backup_directory))
         if stat(disk_path).st_size > 100000000:  # 100 MB+ disk images
             print("This is a large disk image, so it may take a few moments...")
-        DiskImage.backup()
+        try:
+            DiskImage.backup()
+        except PermissionError:
+            message_wait_close('Can\'t access the file "%s". Make sure the file is not in use.' % disk_path)
 
         if DiskImage.extension in HARD_DISK_FORMATS:
             files = image['hdd']['files']
@@ -442,6 +445,7 @@ if __name__== '__main__':
                 game_files_in_specified_file = False
                 while not game_files_in_specified_file and not patch_plain_files:
                     filename = input_catch_keyboard_interrupt("%s filename:\n>" % image['name'])
+                    filename = filename.strip('"')
                     filename = pathjoin(exe_dir, filename)
                     if isdir(filename):
                         subdir = filename
