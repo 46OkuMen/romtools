@@ -87,6 +87,9 @@
           {
             "name":"AV04B.GDT",
             "patch":"AV04B.GDT.xdelta"
+          },
+          {
+            "name":"COMMAND.COM"
           }
         ]
       },
@@ -193,6 +196,9 @@
           {
             "name":"TITLE6.GDT",
             "patch":"TITLE6.GDT.xdelta"
+          },
+          {
+            "name":"COMMAND.COM"
           }
         ],
         "path_keywords":[

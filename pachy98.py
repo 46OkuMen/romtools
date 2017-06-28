@@ -15,7 +15,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-VERSION = 'v0.15.0'
+VERSION = 'v0.16.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -203,6 +203,12 @@ def patch_images(selected_images, cfg):
             message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
 
         for f in files:
+            # Ignore files that lack a patch
+            try:
+                _ = f['patch']
+            except KeyError:
+                continue
+
             print('Extracting %s...' % f['name'])
             try:
                 DiskImage.extract(f['name'], path_in_disk)
@@ -513,6 +519,12 @@ if __name__== '__main__':
 
     else:
         for f in cfg.hdd_files:
+            # Ignore files without a patch
+            try:
+                _ = f['patch']
+            except KeyError:
+                continue
+
             f_path = pathjoin(exe_dir, plain_files_dir, f['name'])
             # Patch fhe files without doing any extracting stuff, but still consider options!
             print("Backing up %s..." % f['name'])
