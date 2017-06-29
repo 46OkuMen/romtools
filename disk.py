@@ -219,6 +219,12 @@ class Disk:
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
+            sleep(.5)
+            try:
+                result = check_output(del_cmd)
+            except CalledProcessError:
+                raise ReadOnlyDiskError("Disk is in read-only mode", [])
+
             raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
     def insert(self, filepath, path_in_disk=None, delete_original=True):
@@ -244,7 +250,11 @@ class Disk:
             except CalledProcessError:
                 raise FileNotFoundError("File not found in disk", [])
         except CalledProcessError:
-            raise FileNotFoundError("File not found in disk", [])
+            sleep(.5)
+            try:
+                result = check_output(cmd)
+            except CalledProcessError:
+                raise FileNotFoundError("File not found in disk", [])
 
     def backup(self):
         # Handle permissionerrors in client applications...
