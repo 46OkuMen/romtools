@@ -88,23 +88,27 @@ class Config:
                                     for p in list:
                                         patch_path = pathjoin(self.patch_dir, p)
                                         if not isfile(patch_path):
-                                            return FileNotFoundError(patch_path)
+                                            return FileNotFoundError(patch_path, [])
                                 elif patch['type'] == 'boolean':
                                     true_patch_path = pathjoin(self.patch_dir, patch['true'])
                                     if not isfile(true_patch_path):
-                                        return FileNotFoundError(true_patch_path)
+                                        return FileNotFoundError(true_patch_path, [])
                                     false_patch_path = pathjoin(self.patch_dir, patch['false'])
                                     if not isfile(false_patch_path):
-                                        return FileNotFoundError(false_patch_path)
+                                        return FileNotFoundError(false_patch_path, [])
                             except TypeError:
                                 # Interprets "type" as a string index if it has no type field.
                                 # This is the case for the normal generic patch.
                                 patch_path = pathjoin(self.patch_dir, f['patch'])
                                 if not isfile(patch_path):
-                                    return FileNotFoundError(patch_path)
+                                    return FileNotFoundError(patch_path, [])
                         except KeyError:
                             continue
+                        except TypeError:
+                            continue
                 except KeyError:
+                    continue
+                except TypeError:
                     continue
         return True
 
@@ -149,13 +153,19 @@ def select_config():
 
 def y_n_input():
     print('(y/n)')
-    user_input = input_catch_keyboard_interrupt(">")
+    try:
+        user_input = input_catch_keyboard_interrupt(">")
+    except IndexError:
+        user_input = ""
 
-    user_input = user_input.strip(" ").lower()[0]
     while user_input not in ('y', 'n'):
         print('(y/n)')
         user_input = input_catch_keyboard_interrupt(">")
-        user_input = user_input.strip(" ").lower()[0]
+        user_input = user_input.strip(" ").lower()
+        try:
+            user_input = user_input[0]
+        except IndexError:
+            user_input = ""
 
     return user_input
 
@@ -271,7 +281,7 @@ def patch_images(selected_images, cfg):
                 except ReadOnlyDiskError:
                     print("Error. Restoring from backup...")
                     DiskImage.restore_from_backup()
-                    message_wait_close("Error deleting", f, ". Make sure the disk is not read-only, and try again.")
+                    message_wait_close("Error deleting %s. Make sure the disk is not read-only, and try again.")
             for f in files:
                 extracted_file_path = pathjoin(disk_directory, f['name'])
                 print("Inserting %s..." % f['name'])
