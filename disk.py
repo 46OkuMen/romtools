@@ -13,7 +13,7 @@ from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
 
-from lzss import compress
+from romtools.lzss import compress
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
