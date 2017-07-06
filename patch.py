@@ -23,6 +23,7 @@ class Patch:
         if self.edited is None:
             raise Exception
         cmd = '"%s" -f -s "%s" "%s" "%s' % (self.xdelta_path, self.original, self.edited, self.filename)
+        print(cmd)
         logging.info(cmd)
         try:
             result = check_output(cmd)

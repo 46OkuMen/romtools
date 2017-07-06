@@ -365,5 +365,3 @@ if __name__ == '__main__':
     EVOHDM = Disk('EVO.hdm')
     EVOHDM.insert('AV300.GDT')
     EVOHDM.extract('AV300.GDT')
-
-# TODO: This backup folder is going into the weird pyinstaller land.

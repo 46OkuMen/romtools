@@ -159,7 +159,7 @@ class DumpExcel(object):
 
     def get_translations(self, target, include_blank=False):
         """Get the translations for a file."""
-        # Accepts a block or a gamefile as "target".
+        # Accepts a block, gamefile, or filename as "target".
         trans = []    # translations[offset] = Translation()
         try:
             worksheet = self.workbook.get_sheet_by_name(target.gamefile.filename)
@@ -168,9 +168,22 @@ class DumpExcel(object):
                 worksheet = self.workbook.get_sheet_by_name(target.filename)
             except KeyError:
                 worksheet = self.workbook.get_sheet_by_name(target.filename.lstrip('decompressed_'))
+            except AttributeError:
+                worksheet = self.workbook.get_sheet_by_name(target)
+
+        first_row = list(worksheet.rows)[0]
+        header_values = [t.value for t in first_row]
+        print(header_values)
+
+        offset_col = header_values.index('Offset')
+        jp_col = header_values.index('Japanese')
+        en_col = header_values.index('English')
+
+        print(offset_col, jp_col, en_col)
+
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
             try:
-                offset = int(row[0].value, 16)
+                offset = int(row[offset_col].value, 16)
             except TypeError:
                 # Either a blank line or a total value. Ignore it.
                 break
@@ -181,14 +194,11 @@ class DumpExcel(object):
             except AttributeError:
                 pass
 
-            if row[3].value is None and not include_blank:
+            if row[en_col].value is None and not include_blank:
                 continue
 
-            japanese = row[1].value.encode('shift-jis')
-            if include_blank:
-                english = ""
-            else:
-                english = row[3].value.encode('shift-jis')
+            japanese = row[jp_col].value.encode('shift-jis')
+            english = row[en_col].value.encode('shift-jis')
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
