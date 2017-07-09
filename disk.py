@@ -216,6 +216,8 @@ class Disk:
         else:
             del_cmd += ' "' + filename_without_path  + '"'
 
+        print(del_cmd)
+
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
@@ -227,18 +229,24 @@ class Disk:
 
             raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
-    def insert(self, filepath, path_in_disk=None, delete_original=True):
+    def insert(self, filepath, path_in_disk=None, delete_original=True, delete_necessary=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
         if delete_original:
-            self.delete(filename, path_in_disk)
+            try:
+                self.delete(filename, path_in_disk)
+            except ReadOnlyDiskError:
+                if delete_necessary:
+                    raise
+                else:
+                    print("Couldn't delete, but continuing anyway")
 
         cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
         if path_in_disk:
             cmd += ' ' + path_in_disk
 
-        #print(cmd)
+        print(cmd)
         logging.info(cmd)
 
         try:
@@ -293,7 +301,7 @@ class Gamefile(object):
         else:
             self.pointers = None
 
-    def write(self, path_in_disk=None, compression=False):
+    def write(self, path_in_disk=None, compression=False, skip_disk=False):
         """Write the new data to an independent file for later inspection."""
         dest_path = path.join(self.dest_disk.dir, self.filename)
 
@@ -306,8 +314,9 @@ class Gamefile(object):
             print(compressed_path)
             dest_path = compressed_path
 
-        print("inserting:", dest_path)
-        self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
+        if not skip_disk:
+            print("inserting:", dest_path)
+            self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
     def incorporate(self, block):
         self.filestring = self.filestring.replace(block.original_blockstring, block.blockstring)
@@ -321,7 +330,7 @@ class Gamefile(object):
     def edit_pointers_in_range(self, rng, diff):
         """Edit all the pointers between two file offsets."""
         start, stop = rng
-        print("Editing pointers in range %s %s" % (hex(start), hex(stop)))
+        #print("Editing pointers in range %s %s" % (hex(start), hex(stop)))
         if diff != 0:
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
                 for ptr in self.pointers[offset]:

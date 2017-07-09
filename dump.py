@@ -124,16 +124,16 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        print("Editing %s with diff %s" % (self, diff))
+        #print("Editing %s with diff %s" % (self, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
-        print(first, second)
+        #print(first, second)
         old_value = unpack(first, second)
         new_value = old_value + diff
 
         new_bytes = new_value.to_bytes(length=2, byteorder='little')
-        print(hex(old_value), hex(new_value))
-        print((first, second), repr(new_bytes))
+        #print(hex(old_value), hex(new_value))
+        #print((first, second), repr(new_bytes))
         #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
         prefix = self.gamefile.filestring[:self.location]
         suffix = self.gamefile.filestring[self.location+2:]
@@ -173,13 +173,10 @@ class DumpExcel(object):
 
         first_row = list(worksheet.rows)[0]
         header_values = [t.value for t in first_row]
-        print(header_values)
 
         offset_col = header_values.index('Offset')
         jp_col = header_values.index('Japanese')
         en_col = header_values.index('English')
-
-        print(offset_col, jp_col, en_col)
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
             try:
@@ -198,7 +195,10 @@ class DumpExcel(object):
                 continue
 
             japanese = row[jp_col].value.encode('shift-jis')
-            english = row[en_col].value.encode('shift-jis')
+            if row[en_col].value is None:
+                english = b""
+            else:
+                english = row[en_col].value.encode('shift-jis')
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
@@ -206,7 +206,7 @@ class DumpExcel(object):
 
             # Blank strings are None (non-iterable), so use "" instead.
             if not english:
-                english = ""
+                english = b""
 
             trans.append(Translation(target, offset, japanese, english, control_codes=self.control_codes))
         return trans
@@ -251,7 +251,11 @@ class PointerExcel(object):
             if i == 0:
                 continue
             text_location = int(row[0].value, 16)
-            pointer_location = int(row[1].value, 16)
+            try:
+                pointer_location = int(row[1].value, 16)
+            except ValueError:
+                print("Pointer with text location %s had no pointer location. Proceed with caution" % hex(text_location))
+                continue
             ptr = BorlandPointer(gamefile, pointer_location, text_location)
             if text_location in pointers:
                 pointers[text_location].append(ptr)
