@@ -243,41 +243,50 @@ def patch_images(selected_images, cfg):
                 continue
 
             print('Extracting %s...' % f['name'])
-            path_in_disk = DiskImage.find_file(f['name'])[0].decode('shift_jis')
+            paths_in_disk = [p.decode('shift_jis') for p in DiskImage.find_file(f['name'])]
+            #print(paths_in_disk)
             #print(path_in_disk)
-            try:
-                DiskImage.extract(f['name'], path_in_disk)
-            except FileNotFoundError:
-                print("Error. Restoring from backup...")
-                DiskImage.restore_from_backup()
-                message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
-            extracted_file_path = pathjoin(disk_directory, f['name'])
-            copyfile(extracted_file_path, extracted_file_path + '_edited')
-
-            # Failsafe list. Patches to try in order.
-            patch_list = []
-            if 'type' in f['patch']:
-                if f['patch']['type'] == 'failsafelist':
-                    patch_list = f['patch']['list']
-                elif f['patch']['type'] == 'boolean':
-                    if options[f['patch']['id']]:
-                        patch_list = [f['patch']['true'],]
-                    else:
-                        patch_list = [f['patch']['false'],]
-            else:
-                patch_list = [f['patch'],]
-
             patch_worked = False
-            for i, patch in enumerate(patch_list):
-                patch_filepath = pathjoin(exe_dir, 'patch', patch)
-                patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
+            for j, path_in_disk in enumerate(paths_in_disk):
+                #print(path_in_disk)
+                if patch_worked:
+                    break
+
                 try:
-                    print("Patching %s..." % f['name'])
-                    patchfile.apply()
-                    patch_worked = True
-                except PatchChecksumError:
-                    if i < len(patch_list) - 1:
-                        print("Trying backup patch for %s..." % f['name'])
+                    DiskImage.extract(f['name'], path_in_disk)
+                except FileNotFoundError:
+                    print("Error. Restoring from backup...")
+                    DiskImage.restore_from_backup()
+                    message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
+                extracted_file_path = pathjoin(disk_directory, f['name'])
+                copyfile(extracted_file_path, extracted_file_path + '_edited')
+
+                # Failsafe list. Patches to try in order.
+                patch_list = []
+                if 'type' in f['patch']:
+                    if f['patch']['type'] == 'failsafelist':
+                        patch_list = f['patch']['list']
+                    elif f['patch']['type'] == 'boolean':
+                        if options[f['patch']['id']]:
+                            patch_list = [f['patch']['true'],]
+                        else:
+                            patch_list = [f['patch']['false'],]
+                else:
+                    patch_list = [f['patch'],]
+
+                #patch_worked = False
+                for i, patch in enumerate(patch_list):
+                    patch_filepath = pathjoin(exe_dir, 'patch', patch)
+                    patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
+                    try:
+                        print("Patching %s..." % f['name'])
+                        patchfile.apply()
+                        patch_worked = True
+                    except PatchChecksumError:
+                        if i < len(patch_list) - 1:
+                            print("Trying backup patch for %s..." % f['name'])
+                if not patch_worked and j < len(paths_in_disk) - 1:
+                    print("Trying another file with the name %s..." % f['name'])
 
             if not patch_worked:
                 print("Error. Restoring from backup...")
