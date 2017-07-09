@@ -15,7 +15,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-VERSION = 'v0.16.0'
+VERSION = 'v0.17.0'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -31,10 +31,19 @@ class Config:
         self.images = self.json['images']
         self.options = self.json['options']
 
+        #for i in self.images:
+        #    if i['type'] == 'mixed':
+        #        self.all_filenames = [f['name'] for f in i['hdd']['files']]
+        #        self.hdd_files = i['hdd']['files']
+        # Best not to require a hdd/mixed thing to be included.
+        self.all_filenames = set()
         for i in self.images:
-            if i['type'] == 'mixed':
-                self.all_filenames = [f['name'] for f in i['hdd']['files']]
-                self.hdd_files = i['hdd']['files']
+            floppy_filenames = [f['name'] for f in i['floppy']['files']]
+            for ff in floppy_filenames:
+                self.all_filenames.add(ff)
+        self.all_filenames = list(self.all_filenames)
+        #print(self.all_filenames)
+
         self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
 
         # TODO: What other stuff do I need easier access to?
@@ -306,7 +315,7 @@ if __name__== '__main__':
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
-    sys.excepthook = except_handler
+    #sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
@@ -389,12 +398,12 @@ if __name__== '__main__':
             if not image_found:
                 selected_images[image['id']] = None
 
-    # Otherwise, search the directory for common image names
+    # Otherwise, search the directory
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
     if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1 and not patch_plain_files:
         print("Looking for %s disk images in this directory..." % cfg.info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
-        #logging.info("files in exe_dir: %s" % listdir(exe_dir))
+        logging.info("files in exe_dir: %s" % listdir(exe_dir))
         image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
         logging.info("images in exe_dir: %s" % image_paths_in_dir)
         disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
@@ -424,7 +433,6 @@ if __name__== '__main__':
                 floppy_found = False
                 floppy_filenames = [f['name'] for f in image['floppy']['files']]
                 for d in disks_in_dir:
-
                     if d.find_file_dir(floppy_filenames) is not None:
                         selected_images[image['id']] = d.filename
                         floppy_found = True

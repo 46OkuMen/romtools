@@ -13,12 +13,12 @@ from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
 
-from romtools.lzss import compress
+from lzss import compress
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
                           'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh',
-                          'dcp']
+                          'dcp', 'xdf']
 
 HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # HDI: anex86
@@ -145,6 +145,7 @@ class Disk:
 
         #logging.info("Filenames: %s" % filenames)
         #logging.info("Subdirs: %s" % subdirs)
+        print(filenames)
         return filenames, subdirs
 
     def find_file(self, target_file):
