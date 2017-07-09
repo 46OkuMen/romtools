@@ -145,7 +145,7 @@ class Disk:
 
         #logging.info("Filenames: %s" % filenames)
         #logging.info("Subdirs: %s" % subdirs)
-        print(filenames)
+        #print(filenames)
         return filenames, subdirs
 
     def find_file(self, target_file):
@@ -217,8 +217,6 @@ class Disk:
         else:
             del_cmd += ' "' + filename_without_path  + '"'
 
-        print(del_cmd)
-
         try:
             result = check_output(del_cmd)
         except CalledProcessError:
@@ -247,7 +245,7 @@ class Disk:
         if path_in_disk:
             cmd += ' ' + path_in_disk
 
-        print(cmd)
+        #print(cmd)
         logging.info(cmd)
 
         try:

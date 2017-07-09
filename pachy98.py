@@ -33,14 +33,18 @@ class Config:
 
         #for i in self.images:
         #    if i['type'] == 'mixed':
-        #        self.all_filenames = [f['name'] for f in i['hdd']['files']]
-        #        self.hdd_files = i['hdd']['files']
+        #        #self.all_filenames = [f['name'] for f in i['hdd']['files']]
+        #        self.all_files = i['hdd']['files']
         # Best not to require a hdd/mixed thing to be included.
+        self.all_files = []   # Dicts are not a hashable type, so they need a list
         self.all_filenames = set()
         for i in self.images:
             floppy_filenames = [f['name'] for f in i['floppy']['files']]
+            floppy_files = i['floppy']['files']
             for ff in floppy_filenames:
                 self.all_filenames.add(ff)
+            for ff in floppy_files:
+                self.all_files.append(ff)
         self.all_filenames = list(self.all_filenames)
         #print(self.all_filenames)
 
@@ -60,7 +64,6 @@ class Config:
         # TODO: More extensive validation.
             # Make sure all patches exist in the patch directory
             # Make sure booleaan id's match those defined by the user
-            # Only one mixed or HDD, and it's in the 0th slot, right?
         for o in self.options:
             if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_IDS):
                 return False
@@ -217,9 +220,9 @@ def patch_images(selected_images, cfg):
         # Find the right directory to look for the files in.
         disk_filenames = [f['name'] for f in files]
 
-        path_in_disk = DiskImage.find_file_dir(disk_filenames)
-        if path_in_disk is None:
-            message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
+        #path_in_disk = DiskImage.find_file_dir(disk_filenames)
+        #if path_in_disk is None:
+        #    message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
 
         for f in files:
             # Ignore files that lack a patch
@@ -229,6 +232,8 @@ def patch_images(selected_images, cfg):
                 continue
 
             print('Extracting %s...' % f['name'])
+            path_in_disk = DiskImage.find_file(f['name'])[0].decode('shift_jis')
+            print(path_in_disk)
             try:
                 DiskImage.extract(f['name'], path_in_disk)
             except FileNotFoundError:
@@ -382,7 +387,8 @@ if __name__== '__main__':
 
             for arg_image in arg_images:
                 ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
-                if ArgDisk.find_file_dir(cfg.all_filenames):
+                #if ArgDisk.find_file_dir(cfg.all_filenames):
+                if all([ArgDisk.find_file(filename) for filename in cfg.all_filenames]):
                     selected_images = [arg_image,]
                     image_found = True
                     hdd_found = True
@@ -391,7 +397,8 @@ if __name__== '__main__':
                     break
                 
                 disk_filenames = [f['name'] for f in image['floppy']['files']]
-                if ArgDisk.find_file_dir(disk_filenames):
+                #if ArgDisk.find_file_dir(disk_filenames):
+                if all([ArgDisk.find_file(filename) for filename in disk_filenames]):
                     selected_images[image['id']] = arg_image
                     image_found = True
 
@@ -420,7 +427,8 @@ if __name__== '__main__':
                     floppy_filenames = [f['name'] for f in image['floppy']['files']]
                     floppy_found = False
                     for d in disks_in_dir:
-                        if d.find_file_dir(floppy_filenames) is not None:
+                        #if d.find_file_dir(floppy_filenames) is not None:
+                        if all([d.find_file(filename) for filename in floppy_filenames]):
                             selected_images[image['id']] = d.filename
                             floppy_found = True
                             break
@@ -433,7 +441,8 @@ if __name__== '__main__':
                 floppy_found = False
                 floppy_filenames = [f['name'] for f in image['floppy']['files']]
                 for d in disks_in_dir:
-                    if d.find_file_dir(floppy_filenames) is not None:
+                    #if d.find_file_dir(floppy_filenames) is not None:
+                    if all([d.find_file(filename) for filename in floppy_filenames]):
                         selected_images[image['id']] = d.filename
                         floppy_found = True
                         break
@@ -482,7 +491,8 @@ if __name__== '__main__':
                     elif isfile(filename):
                         try:
                             d = Disk(filename, ndc_dir=bin_dir)
-                            if d.find_file_dir(cfg.all_filenames):
+                            #if d.find_file_dir(cfg.all_filenames):
+                            if all([d.find_file(filename) for filename in cfg.all_filenames]):
                                 game_files_in_specified_file = True
                             else:
                                 print("Disk image doesn't contain the correct gamefiles, or is currently in use.")
@@ -536,7 +546,7 @@ if __name__== '__main__':
         patch_images(selected_images, cfg=cfg)
 
     else:
-        for f in cfg.hdd_files:
+        for f in cfg.all_files:
             # Ignore files without a patch
             try:
                 _ = f['patch']
