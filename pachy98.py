@@ -29,7 +29,10 @@ class Config:
         self.json = json.loads(unicode_safe)
         self.info = self.json['info']
         self.images = self.json['images']
-        self.options = self.json['options']
+        try:
+            self.options = self.json['options']
+        except KeyError:
+            self.options = []
 
         #for i in self.images:
         #    if i['type'] == 'mixed':
@@ -233,7 +236,7 @@ def patch_images(selected_images, cfg):
 
             print('Extracting %s...' % f['name'])
             path_in_disk = DiskImage.find_file(f['name'])[0].decode('shift_jis')
-            print(path_in_disk)
+            #print(path_in_disk)
             try:
                 DiskImage.extract(f['name'], path_in_disk)
             except FileNotFoundError:
@@ -320,7 +323,7 @@ if __name__== '__main__':
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
-    #sys.excepthook = except_handler
+    sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
