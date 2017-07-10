@@ -15,7 +15,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-VERSION = 'v0.17.0'
+VERSION = 'v0.17.1'
 
 VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -438,7 +438,8 @@ if __name__== '__main__':
         for image in cfg.images:
             if image['type'] == 'mixed':
                 for d in disks_in_dir:
-                    if d.find_file_dir(cfg.all_filenames) is not None:
+                    #if d.find_file_dir(cfg.all_filenames) is not None:
+                    if all([d.find_file(filename) for filename in cfg.all_filenames]):
                         selected_images = [d.filename,]
                         hd_found = True
                         break
