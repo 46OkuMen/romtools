@@ -146,32 +146,34 @@ def exit_quietly():
 def select_config():
     # Find the configs and choose one if necessary.
     configs = [pathjoin(exe_dir, f) for f in listdir(exe_dir) if f.startswith('Pachy98-') and f.endswith('.json')]
-    if len(configs) == 0:
+    good_configs = []
+    for c in configs:
+        try:
+            _ = Config(c)
+            good_configs.append(c)
+        except json.decoder.JSONDecodeError:
+            logging.info("Config %s is invalid, and was skipped" % c)
+
+
+    if len(good_configs) == 0:
         message_wait_close('No "Pachy98-*.json" config files were found in this directory.')
 
-    elif len(configs) > 1:
-        non_crashing_configs = []
-        for c in configs:
-            try:
-                _ = Config(c)
-                non_crashing_configs.append(c)
-            except json.decoder.JSONDecodeError:
-                logging.info("Config %s is invalid, and was skipped" % c)
+    elif len(good_configs) == 1:
+        selected_config = good_configs[0]
 
+    elif len(configs) > 1:
         print("Multiple Pachy98 json config files found. Which game do you want to patch?")
-        for i, c in enumerate(non_crashing_configs):
+        for i, c in enumerate(good_configs):
             cfg = Config(c)
             print("%i) %s" % (i+1, cfg.info['game']))
         config_choice = 0
-        while config_choice not in range(1, len(non_crashing_configs)+1):
-            print("Enter a number %i-%i." % (1, len(non_crashing_configs)))
+        while config_choice not in range(1, len(good_configs)+1):
+            print("Enter a number %i-%i." % (1, len(good_configs)))
             try:
                 config_choice = int(input_catch_keyboard_interrupt(">"))
             except ValueError:  # int() on a string: try again
                 pass
-        selected_config = non_crashing_configs[config_choice-1]
-    else:
-        selected_config = non_crashing_configs[0]
+        selected_config = good_configs[config_choice-1]
     return selected_config
 
 def y_n_input():
