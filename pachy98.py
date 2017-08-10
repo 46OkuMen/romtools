@@ -38,18 +38,25 @@ class Config:
         #    if i['type'] == 'mixed':
         #        #self.all_filenames = [f['name'] for f in i['hdd']['files']]
         #        self.all_files = i['hdd']['files']
-        # Best not to require a hdd/mixed thing to be included.
+        # Best not to require a hdd/mixed/floppy thing to be included.
         self.all_files = []   # Dicts are not a hashable type, so they need a list
         self.all_filenames = set()
         for i in self.images:
-            floppy_filenames = [f['name'] for f in i['floppy']['files']]
-            floppy_files = i['floppy']['files']
-            for ff in floppy_filenames:
-                self.all_filenames.add(ff)
-            for ff in floppy_files:
-                self.all_files.append(ff)
+            try:
+                floppy_filenames = [f['name'] for f in i['floppy']['files']]
+                floppy_files = i['floppy']['files']
+                for ff in floppy_filenames:
+                    self.all_filenames.add(ff)
+                for ff in floppy_files:
+                    self.all_files.append(ff)
+            except KeyError:
+                hdd_filenames = [h['name'] for h in i['hdd']['files']]
+                hdd_files = i['hdd']['files']
+                for hf in hdd_filenames:
+                    self.all_filenames.add(hf)
+                for hf in hdd_files:
+                    self.all_files.append(hf)
         self.all_filenames = list(self.all_filenames)
-        #print(self.all_filenames)
 
         self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
 
@@ -429,7 +436,7 @@ if __name__== '__main__':
 
     # Otherwise, search the directory
     # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
-    if len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1 and not patch_plain_files:
+    if selected_images == [None] or (len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1 and not patch_plain_files):
         print("Looking for %s disk images in this directory..." % cfg.info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
         logging.info("files in exe_dir: %s" % listdir(exe_dir))
@@ -438,7 +445,7 @@ if __name__== '__main__':
         disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
 
         for image in cfg.images:
-            if image['type'] == 'mixed':
+            if image['type'] == 'mixed' or image['type'] == 'hdd':
                 for d in disks_in_dir:
                     #if d.find_file_dir(cfg.all_filenames) is not None:
                     if all([d.find_file(filename) for filename in cfg.all_filenames]):
