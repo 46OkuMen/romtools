@@ -34,28 +34,29 @@ class Config:
         except KeyError:
             self.options = []
 
-        #for i in self.images:
-        #    if i['type'] == 'mixed':
-        #        #self.all_filenames = [f['name'] for f in i['hdd']['files']]
-        #        self.all_files = i['hdd']['files']
-        # Best not to require a hdd/mixed/floppy thing to be included.
         self.all_files = []   # Dicts are not a hashable type, so they need a list
         self.all_filenames = set()
+        self.new_files = []
+
         for i in self.images:
             try:
-                floppy_filenames = [f['name'] for f in i['floppy']['files']]
                 floppy_files = i['floppy']['files']
-                for ff in floppy_filenames:
-                    self.all_filenames.add(ff)
                 for ff in floppy_files:
-                    self.all_files.append(ff)
+                    try:
+                        _ = ff['new_file']
+                        self.new_files.append(hf)
+                    except KeyError:
+                        self.all_files.append(ff)
+                        self.all_filenames.add(ff['name'])
             except KeyError:
-                hdd_filenames = [h['name'] for h in i['hdd']['files']]
                 hdd_files = i['hdd']['files']
-                for hf in hdd_filenames:
-                    self.all_filenames.add(hf)
                 for hf in hdd_files:
-                    self.all_files.append(hf)
+                    try:
+                        _ = hf['new_file']
+                        self.new_files.append(hf)
+                    except KeyError:
+                        self.all_files.append(hf)
+                        self.all_filenames.add(hf['name'])
         self.all_filenames = list(self.all_filenames)
 
         self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
@@ -337,6 +338,11 @@ def patch_images(selected_images, cfg):
                 remove(extracted_file_path)
                 remove(extracted_file_path + '_edited')
 
+        for f in cfg.new_files:
+            new_file_path = pathjoin(exe_dir, 'patch', f['name'])
+            print("Inserting new file %s..." % f['name'])
+            DiskImage.insert(new_file_path, path_in_disk, delete_original=False)
+
 
 if __name__== '__main__':
     # Set the current directory to the magical pyinstaller folder if necessary.
@@ -349,7 +355,7 @@ if __name__== '__main__':
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
-    sys.excepthook = except_handler
+    #sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
@@ -454,14 +460,17 @@ if __name__== '__main__':
                         break
 
                 if not hd_found:
-                    floppy_filenames = [f['name'] for f in image['floppy']['files']]
                     floppy_found = False
-                    for d in disks_in_dir:
-                        #if d.find_file_dir(floppy_filenames) is not None:
-                        if all([d.find_file(filename) for filename in floppy_filenames]):
-                            selected_images[image['id']] = d.filename
-                            floppy_found = True
-                            break
+                    try:
+                        floppy_filenames = [f['name'] for f in image['floppy']['files']]
+                        for d in disks_in_dir:
+                            #if d.find_file_dir(floppy_filenames) is not None:
+                            if all([d.find_file(filename) for filename in floppy_filenames]):
+                                selected_images[image['id']] = d.filename
+                                floppy_found = True
+                                break
+                    except KeyError:
+                        pass
 
                     if not floppy_found:
                         print("No disk found for '%s'" % image['name'])
