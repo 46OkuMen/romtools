@@ -13,7 +13,7 @@ from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, is_valid_disk_
 from disk import ReadOnlyDiskError, FileNotFoundError, FileFormatNotSupportedError, is_DIP
 from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 VERSION = 'v0.17.3'
 
@@ -383,6 +383,8 @@ if __name__== '__main__':
     except KeyError:
         pass
     except HTTPError:
+        print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
+    except URLError:
         print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
     except ValueError:
         logging.info("This version URL contains something malformed: %s" % version_url)
