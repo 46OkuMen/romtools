@@ -355,7 +355,7 @@ if __name__== '__main__':
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
-    #sys.excepthook = except_handler
+    sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
@@ -388,10 +388,8 @@ if __name__== '__main__':
         print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
     except ValueError:
         logging.info("This version URL contains something malformed: %s" % version_url)
-        print("\nVersion url didn't contain a current version... Now patching normally.\n")
-    # TODO: Need an exception for timeouts or other url errors.
-
-
+    except:
+        pass
 
     expected_image_length = len([i for i in cfg.images if i['type'] != 'disabled'])
 
