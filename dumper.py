@@ -1,8 +1,20 @@
+"""
+    Generic dumper of Shift-JIS text into an excel spreadsheet.
+    Meant for quick estimations of how much text is in a game.
+"""
+
+import sys
 import os
 import xlsxwriter
 
-dir = os.curdir
+COMPILER_MESSAGES = [b'Turbo', b'Borland', b'C++', b'Library', b'Copyright']
 
+ASCII_MODE = 0
+# 0 = none
+# 1: punctuation and c format strings only (not implemented)
+# 2: All ascii
+
+THRESHOLD = 3
 
 def dump(files):
     worksheet = workbook.add_worksheet('Everything')
@@ -24,6 +36,15 @@ def dump(files):
             sjis_buffer = b""
             sjis_buffer_start = 0
             sjis_strings = []
+
+            for c in COMPILER_MESSAGES:
+                print(c)
+                if c in contents:
+                    #print(contents)
+                    cursor = contents.index(c)
+                    sjis_buffer_start = contents.index(c)
+                    break
+
             while cursor < len(contents):
 
                 # First byte of SJIS text. Read the next one, too
@@ -33,9 +54,9 @@ def dump(files):
                     cursor += 1
                     sjis_buffer += contents[cursor].to_bytes(1, byteorder='little')
 
-                # ASCII space
-                elif contents[cursor] == 0x20:
-                    sjis_buffer += b" "
+                # ASCII text
+                elif 0x20 <=contents[cursor] <= 0x7e and ASCII_MODE in (1, 2):
+                    sjis_buffer += contents[cursor].to_bytes(1, byteorder='little')
 
                 # C string formatting with %
                 #elif contents[cursor] == 0x25:
@@ -45,8 +66,7 @@ def dump(files):
 
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
-                    if len(sjis_buffer) > 2:
-                        sjis_strings.append((sjis_buffer_start, sjis_buffer))
+                    sjis_strings.append((sjis_buffer_start, sjis_buffer))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                 cursor += 1
@@ -61,6 +81,9 @@ def dump(files):
                 continue
 
             for s in sjis_strings:
+                if len(s[1]) < THRESHOLD:
+                    continue
+
                 loc = '0x' + hex(s[0]).lstrip('0x').zfill(5)
                 try:
                     jp = s[1].decode('shift-jis')
@@ -80,7 +103,10 @@ def dump(files):
     workbook.close()
 
 if __name__ == '__main__':
-    rom_contents_dir = 'Dante98'
+    if len(sys.argv) < 2:
+        print("Usage: python dumper.py folderwithgamefilesinit")
+        sys.exit(1)
+    rom_contents_dir = sys.argv[1]
     workbook = xlsxwriter.Workbook('dump.xlsx')
     header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
     FILES = [f for f in os.listdir(rom_contents_dir) if os.path.isfile(os.path.join(rom_contents_dir, f))]
@@ -89,3 +115,4 @@ if __name__ == '__main__':
 
 
 # TODO: DOn't really need to dump anything before a compiler message, if those are around.
+# TODO: It'd be even better if it just took a disk, or a bunch of disks, and used ndc to get files.
