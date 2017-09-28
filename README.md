@@ -1,7 +1,7 @@
 # romtools
-Tools for tasks common to several romhacking projects.
+Tools for tasks common to several of 46 OkuMen's romhacking projects.
 
-* pachy98.py - 
+* pachy98.py - A flexible patcher for JP PC game disk images. Distributed as Pachy98.exe.
 * disk.py - Wrapper for NDC for reading disk images, and extracting/inserting files.
 * patch.py - Wrapper for xdelta3 for generating and applying patches.
 * dump.py - Classes for dumps of text and pointers.
@@ -16,3 +16,4 @@ Tools for tasks common to several romhacking projects.
 * xdelta3.exe
 
 ## Building Pachy98
+```pyinstaller pachy98.spec```

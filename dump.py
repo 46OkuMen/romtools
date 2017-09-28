@@ -124,12 +124,15 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        #print("Editing %s with diff %s" % (self, diff))
+        print("Editing %s with diff %s" % (self, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
         #print(first, second)
         old_value = unpack(first, second)
         new_value = old_value + diff
+
+        #print(hex(old_value))
+        #print(diff)
 
         new_bytes = new_value.to_bytes(length=2, byteorder='little')
         #print(hex(old_value), hex(new_value))
@@ -139,7 +142,7 @@ class BorlandPointer(object):
         suffix = self.gamefile.filestring[self.location+2:]
         self.gamefile.filestring = prefix + new_bytes + suffix
         self.new_text_location = new_value
-        assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
+        #assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
         return new_bytes
 
     def __repr__(self):
@@ -198,7 +201,10 @@ class DumpExcel(object):
             if row[en_col].value is None:
                 english = b""
             else:
-                english = row[en_col].value.encode('shift-jis')
+                try:
+                    english = row[en_col].value.encode('shift-jis')
+                except AttributeError:   # Int column values
+                    english = str(row[en_col].value).encode('shift-jis')
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now

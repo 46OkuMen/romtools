@@ -13,7 +13,7 @@ from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
 
-from lzss import compress
+from romtools.lzss import compress
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
@@ -323,7 +323,7 @@ class Gamefile(object):
     def edit(self, location, data):
         """Write data to a particular location."""
         self.filestring = self.filestring[:location] + data + self.filestring[location+len(data):]
-        assert len(self.filestring) == len(self.original_filestring)
+        #assert len(self.filestring) == len(self.original_filestring)
         return self.filestring
 
     def edit_pointers_in_range(self, rng, diff):
