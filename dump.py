@@ -1,5 +1,6 @@
-from collections import OrderedDict
+import pygsheets
 import xlsxwriter
+from collections import OrderedDict
 from openpyxl import load_workbook
 
 
@@ -179,7 +180,13 @@ class DumpExcel(object):
 
         offset_col = header_values.index('Offset')
         jp_col = header_values.index('Japanese')
-        en_col = header_values.index('English')
+
+        # Appareden (and later games) have two English columns
+        try:
+            en_col = header_values.index('English')
+        except ValueError:
+            en_col = header_values.index('English (Ingame)')
+
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
             try:
@@ -271,3 +278,30 @@ class PointerExcel(object):
 
     def close(self):
         self.workbook.close()
+
+class DumpGoogleSheet(object):
+    """
+        A dump in a Google Sheet, with methods to update various columns
+    """
+    def __init__(self, filename):
+        gc = pygsheets.authorize(outh_file='client_secret_1010652634407-2d4gjkn44a5020jg6tl4hqjld1130fjs.apps.googleusercontent.com.json', no_cache=True)
+        sh = gc.open(filename)
+
+def update_google_sheets(local_filename, google_filename):
+    local = DumpExcel(local_filename)
+    google = DumpGoogleSheet(google_filename)
+
+    for name in local.workbook.get_sheet_names():
+        worksheet = local.workbook.get_sheet_by_name(name)
+
+        first_row = list(worksheet.rows)[0]
+        header_values = [t.value for t in first_row]
+
+        offset_col = header_values.index('Offset')
+        jp_col = header_values.index('Japanese')
+
+        # Appareden (and later games) have two English columns
+        try:
+            en_col = header_values.index('English')
+        except ValueError:
+            en_col = header_values.index('English (Ingame)')
