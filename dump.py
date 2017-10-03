@@ -285,23 +285,54 @@ class DumpGoogleSheet(object):
     """
     def __init__(self, filename):
         gc = pygsheets.authorize(outh_file='client_secret_1010652634407-2d4gjkn44a5020jg6tl4hqjld1130fjs.apps.googleusercontent.com.json', no_cache=True)
-        sh = gc.open(filename)
+        self.workbook = gc.open(filename)
 
 def update_google_sheets(local_filename, google_filename):
     local = DumpExcel(local_filename)
     google = DumpGoogleSheet(google_filename)
 
     for name in local.workbook.get_sheet_names():
-        worksheet = local.workbook.get_sheet_by_name(name)
+        local_worksheet = local.workbook.get_sheet_by_name(name)
 
-        first_row = list(worksheet.rows)[0]
+        first_row = list(local_worksheet.rows)[0]
         header_values = [t.value for t in first_row]
 
         offset_col = header_values.index('Offset')
         jp_col = header_values.index('Japanese')
+        # TODO: Probably want to update these too
 
-        # Appareden (and later games) have two English columns
-        try:
-            en_col = header_values.index('English')
-        except ValueError:
-            en_col = header_values.index('English (Ingame)')
+        # TODO: Need to sync stuff like new rows as well. For now, make sure they're the same num of rows
+
+        original_en_col = header_values.index('English (kuoushi)')
+        ingame_en_col = header_values.index('English (Ingame)')
+
+        google_worksheet = google.workbook.worksheet_by_title(name)
+
+        google_values = google_worksheet.get_all_values(returnas='cell')
+
+        print(google_values)
+
+        for en_col in (original_en_col, ingame_en_col):
+
+            for i, row in enumerate(local_worksheet):
+                google_val = google_values[i][en_col].value
+                local_val = row[en_col].value
+
+                if google_val is None:
+                    google_val = ''
+                if local_val is None:
+                    local_val = ''
+
+                print(repr(google_val), repr(local_val))
+
+                if str(google_val) != str(local_val):
+                    # If ingame col is different, sync local changes to google sheet
+                    if en_col == ingame_en_col:
+                        label = google_values[i][en_col].label
+                        google_worksheet.update_cell(label, local_val)
+                    # If the kuoushi col has changed, sync google changes to local sheet
+                    elif en_col == original_en_col:
+                        cell = local_worksheet.cell(row=i+1, column=en_col+1)
+                        cell.value = google_val
+
+    local.workbook.save(local_filename)
