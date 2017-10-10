@@ -1,38 +1,54 @@
 """
-        A command-line patching program for Japanese PC game disk images.
-        Reads a json config file, looks for relevant disk images in 
+    A command-line patching program for Japanese PC game disk images.
+    Reads a json config file, looks for relevant disk images in
 """
 
-import sys, logging, json
-from os import curdir, listdir, remove, getcwd, chdir, access, W_OK, stat, _exit
+import sys
+import logging
+import json
+import jsonschema
+from os import (
+    listdir,
+    remove,
+    getcwd,
+    chdir,
+    access,
+    W_OK,
+    stat,
+    _exit,
+)
 from shutil import copyfile
 from os.path import isfile, isdir
 from os.path import split as pathsplit
 from os.path import join as pathjoin
-from disk import Disk, HARD_DISK_FORMATS, SUPPORTED_FILE_FORMATS, is_valid_disk_image
-from disk import ReadOnlyDiskError, FileNotFoundError, FileFormatNotSupportedError, is_DIP
+from disk import (
+    Disk,
+    HARD_DISK_FORMATS,
+    is_valid_disk_image,
+    ReadOnlyDiskError,
+    FileNotFoundError,
+    FileFormatNotSupportedError,
+)
 from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
 VERSION = 'v0.18.0'
 
-VALID_OPTION_TYPES = ['boolean', 'silent']
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
-VALID_PATCH_TYPES = ['boolean', 'failsafelist']
+
 
 class Config:
+    SCHEMA = json.load(open('schema.json'))
+
     def __init__(self, json_path):
         with open(json_path, 'r', encoding='utf-8') as f:
             unicode_safe = f.read()
         self.json = json.loads(unicode_safe)
         self.info = self.json['info']
         self.images = self.json['images']
-        try:
-            self.options = self.json['options']
-        except KeyError:
-            self.options = []
+        self.options = self.json.get('options', [])
 
         self.all_files = []   # Dicts are not a hashable type, so they need a list
         self.all_filenames = set()
@@ -43,8 +59,8 @@ class Config:
                 floppy_files = i['floppy']['files']
                 for ff in floppy_files:
                     try:
-                        _ = ff['new_file']
-                        self.new_files.append(hf)
+                        ff['new_file']
+                        self.new_files.append(ff)
                     except KeyError:
                         self.all_files.append(ff)
                         self.all_filenames.add(ff['name'])
@@ -52,7 +68,7 @@ class Config:
                 hdd_files = i['hdd']['files']
                 for hf in hdd_files:
                     try:
-                        _ = hf['new_file']
+                        hf['new_file']
                         self.new_files.append(hf)
                     except KeyError:
                         self.all_files.append(hf)
@@ -70,33 +86,20 @@ class Config:
         except FileNotFoundError as e:
             message_wait_close("This config references a patch %s that doesn't exist." % e)
 
-
     def _validate_config(self):
+        try:
+            jsonschema.validate(self.json, self.SCHEMA)
+        except jsonschema.ValidationError:
+            return False
+
         # TODO: More extensive validation.
-            # Make sure all patches exist in the patch directory
-            # Make sure booleaan id's match those defined by the user
+        # Make sure all patches exist in the patch directory
+        # Make sure booleaan id's match those defined by the user
         for o in self.options:
-            if o['type'] not in VALID_OPTION_TYPES or (o['type'] == 'silent' and o['id'] not in VALID_SILENT_OPTION_IDS):
+            if (o['type'] == 'silent' and o['id'] not in
+                    VALID_SILENT_OPTION_IDS):
                 return False
 
-        for i in self.images:
-            if i['type'] not in VALID_IMAGE_TYPES:
-                logging.info("Error in image type %s" % i['type'])
-                return False
-            #logging.info("Made it to the t loop")
-            for t in VALID_IMAGE_TYPES:
-                try:
-                    #logging.info(i[t]['files'])
-                    for f in i[t]['files']:
-                        try:
-                            #logging.info(f['patch']['type'])
-                            if f['patch']['type'] not in VALID_PATCH_TYPES:
-                                logging.info("Error in patch type %s" % f['patch']['type'])
-                                return False
-                        except TypeError:
-                            continue
-                except KeyError:
-                    continue
         return True
 
     def _validate_patch_existence(self):
@@ -135,6 +138,7 @@ class Config:
                     continue
         return True
 
+
 def input_catch_keyboard_interrupt(prompt):
     try:
         result = input(prompt)
@@ -144,6 +148,7 @@ def input_catch_keyboard_interrupt(prompt):
         exit_quietly()
     return result
 
+
 def exit_quietly():
     # Exit without the pyinstaller "Script failed to execute" message.
     try:
@@ -151,17 +156,21 @@ def exit_quietly():
     except SystemExit:
         _exit(0)
 
+
 def select_config():
     # Find the configs and choose one if necessary.
-    configs = [pathjoin(exe_dir, f) for f in listdir(exe_dir) if f.startswith('Pachy98-') and f.endswith('.json')]
+    configs = [
+        pathjoin(exe_dir, f)
+        for f in listdir(exe_dir)
+        if f.startswith('Pachy98-') and f.endswith('.json')
+    ]
     good_configs = []
     for c in configs:
         try:
-            _ = Config(c)
+            Config(c)
             good_configs.append(c)
         except json.decoder.JSONDecodeError:
             logging.info("Config %s is invalid, and was skipped" % c)
-
 
     if len(good_configs) == 0:
         message_wait_close('No "Pachy98-*.json" config files were found in this directory.')
@@ -170,19 +179,21 @@ def select_config():
         selected_config = good_configs[0]
 
     elif len(configs) > 1:
-        print("Multiple Pachy98 json config files found. Which game do you want to patch?")
+        print("Multiple Pachy98 json config files found. "
+              "Which game do you want to patch?")
         for i, c in enumerate(good_configs):
             cfg = Config(c)
-            print("%i) %s" % (i+1, cfg.info['game']))
+            print("%i) %s" % (i + 1, cfg.info['game']))
         config_choice = 0
-        while config_choice not in range(1, len(good_configs)+1):
+        while config_choice not in range(1, len(good_configs) + 1):
             print("Enter a number %i-%i." % (1, len(good_configs)))
             try:
                 config_choice = int(input_catch_keyboard_interrupt(">"))
             except ValueError:  # int() on a string: try again
                 pass
-        selected_config = good_configs[config_choice-1]
+        selected_config = good_configs[config_choice - 1]
     return selected_config
+
 
 def y_n_input():
     print('(y/n)')
@@ -202,16 +213,19 @@ def y_n_input():
 
     return user_input
 
+
 def message_wait_close(msg):
     print(msg)
     input("Press ENTER to close this patcher.")
     exit_quietly()
+
 
 def except_handler(exc_type, exc_value, exc_traceback):
     logging.error(
         "Uncaught exception",
         exc_info=(exc_type, exc_value, exc_traceback)
     )
+
 
 def patch_images(selected_images, cfg):
     backup_directory = pathjoin(exe_dir, 'backup')
@@ -248,17 +262,20 @@ def patch_images(selected_images, cfg):
         for f in files:
             # Ignore files that lack a patch
             try:
-                _ = f['patch']
+                f['patch']
             except KeyError:
                 continue
 
             print('Extracting %s...' % f['name'])
-            paths_in_disk = [p.decode('shift_jis') for p in DiskImage.find_file(f['name'])]
-            #print(paths_in_disk)
-            #print(path_in_disk)
+            paths_in_disk = [
+                p.decode('shift_jis')
+                for p in DiskImage.find_file(f['name'])
+            ]
+            # print(paths_in_disk)
+            # print(path_in_disk)
             patch_worked = False
             for j, path_in_disk in enumerate(paths_in_disk):
-                #print(path_in_disk)
+                # print(path_in_disk)
                 if patch_worked:
                     break
 
@@ -278,13 +295,13 @@ def patch_images(selected_images, cfg):
                         patch_list = f['patch']['list']
                     elif f['patch']['type'] == 'boolean':
                         if options[f['patch']['id']]:
-                            patch_list = [f['patch']['true'],]
+                            patch_list = [f['patch']['true']]
                         else:
-                            patch_list = [f['patch']['false'],]
+                            patch_list = [f['patch']['false']]
                 else:
-                    patch_list = [f['patch'],]
+                    patch_list = [f['patch']]
 
-                #patch_worked = False
+                # patch_worked = False
                 for i, patch in enumerate(patch_list):
                     patch_filepath = pathjoin(exe_dir, 'patch', patch)
                     patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
@@ -344,7 +361,7 @@ def patch_images(selected_images, cfg):
             DiskImage.insert(new_file_path, path_in_disk, delete_original=False)
 
 
-if __name__== '__main__':
+if __name__ == '__main__':
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
@@ -354,7 +371,8 @@ if __name__== '__main__':
     bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
-    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
+    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
+                        level=logging.INFO)
     sys.excepthook = except_handler
     logging.info("Log started")
 
@@ -362,9 +380,9 @@ if __name__== '__main__':
 
     selected_config = select_config()
     config_path = pathjoin(exe_dir, selected_config)
-    
+
     cfg = Config(config_path)
-    
+
     print("Patching: %s (%s) %s by %s ( %s )" % (cfg.info['game'], cfg.info['language'], cfg.info['version'], cfg.info['author'], cfg.info['authorsite']))
 
     # Check for updates
@@ -374,7 +392,7 @@ if __name__== '__main__':
         site_version = urlopen(version_url).readline().decode('utf-8')
         site_version_int = int(site_version.replace('v', '').replace('.', ''))
         this_version_int = int(cfg.info['version'].replace('v', '').replace('.', ''))
-        
+
         if site_version_int > this_version_int:
             print("\nThere is a new update (%s) available!" % site_version)
             print("Get it here: %s\n" % cfg.info['downloadurl'])
@@ -383,17 +401,18 @@ if __name__== '__main__':
     except KeyError:
         pass
     except HTTPError:
-        print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
+        print("Couldn't connect to the site. Proceeding with patching normally.")
     except URLError:
-        print("\nCouldn't connect to the site. Proceeding with patching normally.\n")
+        print("Couldn't connect to the site. Proceeding with patching normally.")
     except ValueError:
-        logging.info("This version URL contains something malformed: %s" % version_url)
+        print("This version URL contains something malformed: %s" % version_url)
     except:
         pass
 
-    expected_image_length = len([i for i in cfg.images if i['type'] != 'disabled'])
+    expected_image_length = len([i for i in cfg.images
+                                 if i['type'] != 'disabled'])
 
-    selected_images = [None,]*expected_image_length
+    selected_images = [None] * expected_image_length
     arg_images = []
     hd_found = False
 
@@ -422,17 +441,17 @@ if __name__== '__main__':
 
             for arg_image in arg_images:
                 ArgDisk = Disk(arg_image, ndc_dir=bin_dir)
-                #if ArgDisk.find_file_dir(cfg.all_filenames):
+                # if ArgDisk.find_file_dir(cfg.all_filenames):
                 if all([ArgDisk.find_file(filename) for filename in cfg.all_filenames]):
-                    selected_images = [arg_image,]
+                    selected_images = [arg_image]
                     image_found = True
                     hdd_found = True
 
                 if hdd_found:
                     break
-                
+
                 disk_filenames = [f['name'] for f in image['floppy']['files']]
-                #if ArgDisk.find_file_dir(disk_filenames):
+                # if ArgDisk.find_file_dir(disk_filenames):
                 if all([ArgDisk.find_file(filename) for filename in disk_filenames]):
                     selected_images[image['id']] = arg_image
                     image_found = True
@@ -441,8 +460,13 @@ if __name__== '__main__':
                 selected_images[image['id']] = None
 
     # Otherwise, search the directory
-    # Only do this if you don't have a full set of selected_images or an HDI already from CLI args.
-    if selected_images == [None] or (len([f for f in selected_images if f is not None]) < expected_image_length and len(selected_images) > 1 and not patch_plain_files):
+    # Only do this if you don't have a full set of selected_images or an HDI
+    # already from CLI args.
+    if selected_images == [
+            None
+    ] or (len([f for f in selected_images
+               if f is not None]) < expected_image_length
+          and len(selected_images) > 1 and not patch_plain_files):
         print("Looking for %s disk images in this directory..." % cfg.info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
         logging.info("files in exe_dir: %s" % listdir(exe_dir))
