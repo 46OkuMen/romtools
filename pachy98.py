@@ -59,7 +59,7 @@ class Config:
                 floppy_files = i['floppy']['files']
                 for ff in floppy_files:
                     try:
-                        _ = ff['new_file']
+                        ff['new_file']
                         self.new_files.append(hf)
                     except KeyError:
                         self.all_files.append(ff)
@@ -68,7 +68,7 @@ class Config:
                 hdd_files = i['hdd']['files']
                 for hf in hdd_files:
                     try:
-                        _ = hf['new_file']
+                        hf['new_file']
                         self.new_files.append(hf)
                     except KeyError:
                         self.all_files.append(hf)
@@ -138,6 +138,7 @@ class Config:
                     continue
         return True
 
+
 def input_catch_keyboard_interrupt(prompt):
     try:
         result = input(prompt)
@@ -147,6 +148,7 @@ def input_catch_keyboard_interrupt(prompt):
         exit_quietly()
     return result
 
+
 def exit_quietly():
     # Exit without the pyinstaller "Script failed to execute" message.
     try:
@@ -154,17 +156,21 @@ def exit_quietly():
     except SystemExit:
         _exit(0)
 
+
 def select_config():
     # Find the configs and choose one if necessary.
-    configs = [pathjoin(exe_dir, f) for f in listdir(exe_dir) if f.startswith('Pachy98-') and f.endswith('.json')]
+    configs = [
+        pathjoin(exe_dir, f)
+        for f in listdir(exe_dir)
+        if f.startswith('Pachy98-') and f.endswith('.json')
+    ]
     good_configs = []
     for c in configs:
         try:
-            _ = Config(c)
+            Config(c)
             good_configs.append(c)
         except json.decoder.JSONDecodeError:
             logging.info("Config %s is invalid, and was skipped" % c)
-
 
     if len(good_configs) == 0:
         message_wait_close('No "Pachy98-*.json" config files were found in this directory.')
@@ -173,19 +179,21 @@ def select_config():
         selected_config = good_configs[0]
 
     elif len(configs) > 1:
-        print("Multiple Pachy98 json config files found. Which game do you want to patch?")
+        print("Multiple Pachy98 json config files found. "
+              "Which game do you want to patch?")
         for i, c in enumerate(good_configs):
             cfg = Config(c)
-            print("%i) %s" % (i+1, cfg.info['game']))
+            print("%i) %s" % (i + 1, cfg.info['game']))
         config_choice = 0
-        while config_choice not in range(1, len(good_configs)+1):
+        while config_choice not in range(1, len(good_configs) + 1):
             print("Enter a number %i-%i." % (1, len(good_configs)))
             try:
                 config_choice = int(input_catch_keyboard_interrupt(">"))
             except ValueError:  # int() on a string: try again
                 pass
-        selected_config = good_configs[config_choice-1]
+        selected_config = good_configs[config_choice - 1]
     return selected_config
+
 
 def y_n_input():
     print('(y/n)')
@@ -205,16 +213,19 @@ def y_n_input():
 
     return user_input
 
+
 def message_wait_close(msg):
     print(msg)
     input("Press ENTER to close this patcher.")
     exit_quietly()
+
 
 def except_handler(exc_type, exc_value, exc_traceback):
     logging.error(
         "Uncaught exception",
         exc_info=(exc_type, exc_value, exc_traceback)
     )
+
 
 def patch_images(selected_images, cfg):
     backup_directory = pathjoin(exe_dir, 'backup')
@@ -251,12 +262,15 @@ def patch_images(selected_images, cfg):
         for f in files:
             # Ignore files that lack a patch
             try:
-                _ = f['patch']
+                f['patch']
             except KeyError:
                 continue
 
             print('Extracting %s...' % f['name'])
-            paths_in_disk = [p.decode('shift_jis') for p in DiskImage.find_file(f['name'])]
+            paths_in_disk = [
+                p.decode('shift_jis')
+                for p in DiskImage.find_file(f['name'])
+            ]
             # print(paths_in_disk)
             # print(path_in_disk)
             patch_worked = False
@@ -281,13 +295,13 @@ def patch_images(selected_images, cfg):
                         patch_list = f['patch']['list']
                     elif f['patch']['type'] == 'boolean':
                         if options[f['patch']['id']]:
-                            patch_list = [f['patch']['true'],]
+                            patch_list = [f['patch']['true']]
                         else:
-                            patch_list = [f['patch']['false'],]
+                            patch_list = [f['patch']['false']]
                 else:
-                    patch_list = [f['patch'],]
+                    patch_list = [f['patch']]
 
-                #patch_worked = False
+                # patch_worked = False
                 for i, patch in enumerate(patch_list):
                     patch_filepath = pathjoin(exe_dir, 'patch', patch)
                     patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
@@ -347,7 +361,7 @@ def patch_images(selected_images, cfg):
             DiskImage.insert(new_file_path, path_in_disk, delete_original=False)
 
 
-if __name__== '__main__':
+if __name__ == '__main__':
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
@@ -357,7 +371,8 @@ if __name__== '__main__':
     bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
-    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'), level=logging.INFO)
+    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
+                        level=logging.INFO)
     sys.excepthook = except_handler
     logging.info("Log started")
 
