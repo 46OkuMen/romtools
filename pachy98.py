@@ -60,7 +60,7 @@ class Config:
                 for ff in floppy_files:
                     try:
                         ff['new_file']
-                        self.new_files.append(hf)
+                        self.new_files.append(ff)
                     except KeyError:
                         self.all_files.append(ff)
                         self.all_filenames.add(ff['name'])
