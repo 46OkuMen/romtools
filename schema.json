@@ -1,0 +1,97 @@
+{
+  "title": "Pachy98 Config",
+  "type": "object",
+  "required": ["info", "images"],
+  "properties": {
+    "info": {
+      "type": "object",
+      "required": ["game", "language", "version", "author", "authorsite"],
+      "properties": {
+        "game": { "type": "string" },
+        "language": { "type": "string" },
+        "version": { "type": "string" },
+        "author": { "type": "string" },
+        "authorsite": { "type": "string" },
+        "versionurl": { "type": "string" },
+        "downloadurl": { "type": "string" }
+      }
+    },
+    "images": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/image" }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["boolean", "silent"] },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "file": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "patch": { "$ref": "#/definitions/patch" }
+      },
+      "required": [ "name" ]
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/file" }
+    },
+    "patch": {
+      "anyOf": [
+        {
+          "required": ["type"],
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": ["boolean", "failsafelist"]
+            },
+            "list": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        { "type": "string" }
+      ]
+    },
+    "image": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "type": "number" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["floppy", "hdd", "mixed"] },
+        "floppy": {
+          "type": "object",
+          "properties": {
+            "path_keywords": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "files": { "$ref": "#/definitions/files" }
+          }
+        },
+        "hdd": {
+          "type": "object",
+          "properties": {
+            "files": { "$ref": "#/definitions/files" }
+          }
+        }
+      }
+    }
+  }
+}
