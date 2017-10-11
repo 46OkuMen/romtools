@@ -7,6 +7,7 @@ import sys
 import logging
 import json
 import jsonschema
+import semver
 from os import (
     listdir,
     remove,
@@ -114,14 +115,14 @@ class Config:
                                     for p in list:
                                         patch_path = pathjoin(self.patch_dir, p)
                                         if not isfile(patch_path):
-                                            return FileNotFoundError(patch_path, [])
+                                            return FileNotFoundError(patch_path)
                                 elif patch['type'] == 'boolean':
                                     true_patch_path = pathjoin(self.patch_dir, patch['true'])
                                     if not isfile(true_patch_path):
-                                        return FileNotFoundError(true_patch_path, [])
+                                        return FileNotFoundError(true_patch_path)
                                     false_patch_path = pathjoin(self.patch_dir, patch['false'])
                                     if not isfile(false_patch_path):
-                                        return FileNotFoundError(false_patch_path, [])
+                                        return FileNotFoundError(false_patch_path)
                             except TypeError:
                                 # Interprets "type" as a string index if it has no type field.
                                 # This is the case for the normal generic patch.
@@ -147,6 +148,24 @@ def input_catch_keyboard_interrupt(prompt):
     except EOFError:
         exit_quietly()
     return result
+
+
+def check_for_update(local_version, remote_version_url):
+    try:
+        print("Checking for updates to this translation... ", end="")
+        remote_version = (urlopen(remote_version_url)
+                          .readline().decode('utf-8'))
+
+        if semver.compare(local_version[1:], remote_version) == -1:
+            print("There is a new update (%s) available!" % remote_version)
+            print("Get it here: %s" % cfg.info['downloadurl'])
+        else:
+            print("It's up to date.\n")
+    except (HTTPError, URLError):
+        print("Couldn't connect to the site. "
+              "Proceeding with patching normally.")
+    except ValueError:
+        print("Invalid version: %s" % remote_version)
 
 
 def exit_quietly():
@@ -385,29 +404,7 @@ if __name__ == '__main__':
 
     print("Patching: %s (%s) %s by %s ( %s )" % (cfg.info['game'], cfg.info['language'], cfg.info['version'], cfg.info['author'], cfg.info['authorsite']))
 
-    # Check for updates
-    try:
-        version_url = cfg.info['versionurl']
-        print("\nChecking for updates to this translation... ", end="")
-        site_version = urlopen(version_url).readline().decode('utf-8')
-        site_version_int = int(site_version.replace('v', '').replace('.', ''))
-        this_version_int = int(cfg.info['version'].replace('v', '').replace('.', ''))
-
-        if site_version_int > this_version_int:
-            print("\nThere is a new update (%s) available!" % site_version)
-            print("Get it here: %s\n" % cfg.info['downloadurl'])
-        else:
-            print("It's up to date.\n")
-    except KeyError:
-        pass
-    except HTTPError:
-        print("Couldn't connect to the site. Proceeding with patching normally.")
-    except URLError:
-        print("Couldn't connect to the site. Proceeding with patching normally.")
-    except ValueError:
-        print("This version URL contains something malformed: %s" % version_url)
-    except:
-        pass
+    check_for_update(cfg.info['version'], cfg.info['versionurl'])
 
     expected_image_length = len([i for i in cfg.images
                                  if i['type'] != 'disabled'])
@@ -477,9 +474,8 @@ if __name__ == '__main__':
         for image in cfg.images:
             if image['type'] == 'mixed' or image['type'] == 'hdd':
                 for d in disks_in_dir:
-                    #if d.find_file_dir(cfg.all_filenames) is not None:
                     if all([d.find_file(filename) for filename in cfg.all_filenames]):
-                        selected_images = [d.filename,]
+                        selected_images = [d.filename]
                         hd_found = True
                         break
 
@@ -488,7 +484,6 @@ if __name__ == '__main__':
                     try:
                         floppy_filenames = [f['name'] for f in image['floppy']['files']]
                         for d in disks_in_dir:
-                            #if d.find_file_dir(floppy_filenames) is not None:
                             if all([d.find_file(filename) for filename in floppy_filenames]):
                                 selected_images[image['id']] = d.filename
                                 floppy_found = True
@@ -504,7 +499,6 @@ if __name__ == '__main__':
                 floppy_found = False
                 floppy_filenames = [f['name'] for f in image['floppy']['files']]
                 for d in disks_in_dir:
-                    #if d.find_file_dir(floppy_filenames) is not None:
                     if all([d.find_file(filename) for filename in floppy_filenames]):
                         selected_images[image['id']] = d.filename
                         floppy_found = True
@@ -513,9 +507,6 @@ if __name__ == '__main__':
                 if not floppy_found:
                     print("No disk found for '%s'" % image['name'])
                     selected_images[image['id']] = None
-
-    #if len(arg_images) > 0 and len([i for i in selected_images if i is not None]) != len(arg_images):
-    #    print("The provided images weren't an entire game, so attempted to autodetect the rest.")
 
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
         # That was all futile. Last ditch effort: Look for the plain files in the dir and subdirs

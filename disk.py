@@ -8,7 +8,7 @@ http://euee.web.fc2.com/tool/nd.html
 NDC version is Ver.0 alpha05d 2017/06/11.
 """
 import logging
-from os import path, pardir, remove, mkdir
+from os import path, pardir, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
@@ -27,11 +27,13 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
 
-# Don't know anything about the DIP format, but this seems to be the common header:
+# Don't know anything about the DIP format, but this seems to be the common
+# header:
 DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
+
 def is_valid_disk_image(filename):
-    #logging.info("Checking is_valid_disk_image on %s" % filename)
+    # logging.info("Checking is_valid_disk_image on %s" % filename)
     just_filename = path.split(filename)[1]
     if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
@@ -39,9 +41,10 @@ def is_valid_disk_image(filename):
         #logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
         return is_DIP(filename)
 
+
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
-    #logging.info("Calling is_DIP on %s" % target)
+    # logging.info("Calling is_DIP on %s" % target)
     try:
         with open(target, 'rb') as f:
             file_header = f.read(7)
@@ -53,7 +56,7 @@ def is_DIP(target):
 
 
 class FileNotFoundError(Exception):
-    def __init__(self, message, errors):
+    def __init__(self, message, errors=[]):
         super(FileNotFoundError, self).__init__(message)
 
 
@@ -369,18 +372,13 @@ class Block(object):
         return "%s (%s, %s)" % (self.gamefile, hex(self.start), hex(self.stop))
 
 
-if __name__ == '__main__':
-
-    EVOHDM = Disk('EVO.hdm')
-    EVOHDM.insert('AV300.GDT')
-    EVOHDM.extract('AV300.GDT')
-
 class Overflow(object):
     """An overflowing string.
 
     """
 
-    # o[0] is location, o[1] is the string, o[2] is the parent block, o[3] is the first string's original location
+    # o[0] is location, o[1] is the string, o[2] is the parent block, o[3] is
+    # the first string's original location
 
     def __init__(self, location, string, parent_block, first_string_location):
         self.location = location
@@ -390,3 +388,10 @@ class Overflow(object):
 
     def move(spare):
         pass
+
+
+if __name__ == '__main__':
+
+    EVOHDM = Disk('EVO.hdm')
+    EVOHDM.insert('AV300.GDT')
+    EVOHDM.extract('AV300.GDT')
