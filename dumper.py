@@ -107,12 +107,17 @@ if __name__ == '__main__':
         print("Usage: python dumper.py folderwithgamefilesinit")
         sys.exit(1)
     rom_contents_dir = sys.argv[1]
-    workbook = xlsxwriter.Workbook('dump.xlsx')
+    workbook = xlsxwriter.Workbook(rom_contents_dir + '_dump.xlsx')
     header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
     FILES = [f for f in os.listdir(rom_contents_dir) if os.path.isfile(os.path.join(rom_contents_dir, f))]
     print(FILES)
     dump(FILES)
 
 
-# TODO: DOn't really need to dump anything before a compiler message, if those are around.
 # TODO: It'd be even better if it just took a disk, or a bunch of disks, and used ndc to get files.
+# TODO: Column for disks
+
+# TODO: Export the dump to a google doc as well?
+
+# TODO: Detect blocks and export that to a skeleton rominfo.py file.
+    # (That could help with detecting some of the one-string-only "blocks" in code sections.)
