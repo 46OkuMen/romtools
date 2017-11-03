@@ -6,12 +6,15 @@ from subprocess import check_output, CalledProcessError
 from shutil import copyfile
 from os import remove, path
 
+
 class PatchChecksumError(Exception):
     def __init__(self, message, errors):
         super(PatchChecksumError, self).__init__(message)
 
+
 class Patch:
-    # TODO: Abstract out the need for "edited" by just copying the original file.
+    # TODO: Abstract out the need for "edited" by just copying the original
+    # file.
     def __init__(self, original, filename, edited=None, xdelta_dir='.'):
         self.original = original
         self.edited = edited
@@ -26,7 +29,7 @@ class Patch:
         print(cmd)
         logging.info(cmd)
         try:
-            result = check_output(cmd)
+            check_output(cmd)
         except CalledProcessError:
             raise Exception('Something went wrong', [])
 
@@ -40,12 +43,9 @@ class Patch:
             cmd = '"%s" -f -d -s "%s" "%s" "%s"' % (self.xdelta_path, self.original, self.filename, self.edited) # SOURCE OUT TARGET
         logging.info(cmd)
         try:
-            result = check_output(cmd)
+            check_output(cmd)
         except CalledProcessError:
             raise PatchChecksumError('Target file had incorrect checksum', [])
         finally:
             if self.original.endswith('_temp'):
                 remove(self.original)
-
-if __name__ == '__main__':
-    pass

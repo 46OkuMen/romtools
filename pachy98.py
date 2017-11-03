@@ -51,7 +51,8 @@ class Config:
         self.images = self.json['images']
         self.options = self.json.get('options', [])
 
-        self.all_files = []   # Dicts are not a hashable type, so they need a list
+        # Dicts are not a hashable type, so they need a list
+        self.all_files = []
         self.all_filenames = set()
         self.new_files = []
 
@@ -81,9 +82,11 @@ class Config:
         # TODO: What other stuff do I need easier access to?
         if not self._validate_config():
             # TODO: Need a more specific message of what is wrong with it.
-            message_wait_close("A config option in %s is not supported by this verison of Pachy98. Download a newer version." % selected_config)
+            message_wait_close("A config option in %s is not supported by "
+                               "this verison of Pachy98. Download a newer "
+                               "version." % selected_config)
         try:
-            self._validate_patch_existence()
+            self.__validate_patch_existence()
         except FileNotFoundError as e:
             message_wait_close("This config references a patch %s that doesn't exist." % e)
 
@@ -103,40 +106,35 @@ class Config:
 
         return True
 
-    def _validate_patch_existence(self):
-        for i in self.images:
-            for t in VALID_IMAGE_TYPES:
-                try:
-                    for f in i[t]['files']:
-                        try:
-                            patch = f['patch']
-                            try:
-                                if patch['type'] == 'list':
-                                    for p in list:
-                                        patch_path = pathjoin(self.patch_dir, p)
-                                        if not isfile(patch_path):
-                                            return FileNotFoundError(patch_path)
-                                elif patch['type'] == 'boolean':
-                                    true_patch_path = pathjoin(self.patch_dir, patch['true'])
-                                    if not isfile(true_patch_path):
-                                        return FileNotFoundError(true_patch_path)
-                                    false_patch_path = pathjoin(self.patch_dir, patch['false'])
-                                    if not isfile(false_patch_path):
-                                        return FileNotFoundError(false_patch_path)
-                            except TypeError:
-                                # Interprets "type" as a string index if it has no type field.
-                                # This is the case for the normal generic patch.
-                                patch_path = pathjoin(self.patch_dir, f['patch'])
-                                if not isfile(patch_path):
-                                    return FileNotFoundError(patch_path, [])
-                        except KeyError:
-                            continue
-                        except TypeError:
-                            continue
-                except KeyError:
+    def __get_files(self, image):
+        return image.get('files', [])
+
+    def __validate_path(self, filename):
+        path = pathjoin(self.patch_dir, filename)
+        if not isfile(path):
+            raise FileNotFoundError(path)
+
+    def __validate_patch_existence(self):
+        for image in self.images:
+            floppy_image = image.get('floppy', {})
+            hdd_image = image.get('hdd', {})
+            files = (self.__get_files(floppy_image)
+                     + self.__get_files(hdd_image))
+            for f in files:
+                patch = f.get('patch')
+                if patch is None:
                     continue
-                except TypeError:
-                    continue
+                elif isinstance(patch, dict):
+                    if patch['type'] == 'list':
+                        for filename in list:
+                            self.__validate_path(filename)
+                    elif patch['type'] == 'boolean':
+                        self.__validate_path(patch['true'])
+                        self.__validate_path(patch['false'])
+                else:
+                    # Interprets "type" as a string index if it has no type
+                    # field.  This is the case for the normal generic patch.
+                    self.__validate_path(patch)
         return True
 
 
@@ -271,13 +269,6 @@ def patch_images(selected_images, cfg):
         else:
             files = image['floppy']['files']
 
-        # Find the right directory to look for the files in.
-        disk_filenames = [f['name'] for f in files]
-
-        #path_in_disk = DiskImage.find_file_dir(disk_filenames)
-        #if path_in_disk is None:
-        #    message_wait_close("Can\'t access the file '%s' now, but could before. Make sure it is not in use, and try again." % disk_path)
-
         for f in files:
             # Ignore files that lack a patch
             try:
@@ -290,11 +281,8 @@ def patch_images(selected_images, cfg):
                 p.decode('shift_jis')
                 for p in DiskImage.find_file(f['name'])
             ]
-            # print(paths_in_disk)
-            # print(path_in_disk)
             patch_worked = False
             for j, path_in_disk in enumerate(paths_in_disk):
-                # print(path_in_disk)
                 if patch_worked:
                     break
 
@@ -323,7 +311,11 @@ def patch_images(selected_images, cfg):
                 # patch_worked = False
                 for i, patch in enumerate(patch_list):
                     patch_filepath = pathjoin(exe_dir, 'patch', patch)
-                    patchfile = Patch(extracted_file_path, patch_filepath, edited=extracted_file_path + '_edited', xdelta_dir=bin_dir)
+                    patchfile = Patch(
+                        extracted_file_path,
+                        patch_filepath,
+                        edited=extracted_file_path + '_edited',
+                        xdelta_dir=bin_dir)
                     try:
                         print("Patching %s..." % f['name'])
                         patchfile.apply()
@@ -402,7 +394,9 @@ if __name__ == '__main__':
 
     cfg = Config(config_path)
 
-    print("Patching: %s (%s) %s by %s ( %s )" % (cfg.info['game'], cfg.info['language'], cfg.info['version'], cfg.info['author'], cfg.info['authorsite']))
+    print("Patching: %s (%s) %s by %s ( %s )" %
+          (cfg.info['game'], cfg.info['language'], cfg.info['version'],
+           cfg.info['author'], cfg.info['authorsite']))
 
     check_for_update(cfg.info['version'], cfg.info['versionurl'])
 
@@ -545,7 +539,6 @@ if __name__ == '__main__':
                     elif isfile(filename):
                         try:
                             d = Disk(filename, ndc_dir=bin_dir)
-                            #if d.find_file_dir(cfg.all_filenames):
                             if all([d.find_file(filename) for filename in cfg.all_filenames]):
                                 game_files_in_specified_file = True
                             else:

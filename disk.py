@@ -12,6 +12,7 @@ from os import path, pardir, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
+from ndc import NDC
 
 #from lzss import compress
 
@@ -38,7 +39,6 @@ def is_valid_disk_image(filename):
     if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
     elif len(just_filename.split('.')) == 1:
-        #logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
         return is_DIP(filename)
 
 
@@ -66,12 +66,17 @@ class ReadOnlyDiskError(Exception):
 
 
 class FileFormatNotSupportedError(Exception):
-    def __init__(self, message, errors):
+    def __init__(self, message, errors=[]):
         super(FileFormatNotSupportedError, self).__init__(message)
 
 
 class Disk:
-    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir=''):
+    def __init__(self,
+                 filename,
+                 backup_folder=None,
+                 dump_excel=None,
+                 pointer_excel=None,
+                 ndc_dir=''):
         self.filename = filename
 
         just_filename = path.split(filename)[1]
@@ -83,17 +88,18 @@ class Disk:
                 self.extension = 'dip'
 
         if self.extension not in SUPPORTED_FILE_FORMATS:
-            raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension, [])
+            raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension)
 
-        # self.original_extension = self.extension
         self.dir = path.abspath(path.join(filename, pardir))
 
         if backup_folder is None:
-            self._backup_filename = path.join(self.dir, 'backup', path.basename(self.filename))
+            self._backup_filename = path.join(self.dir, 'backup',
+                                              path.basename(self.filename))
         else:
             if not path.isdir(backup_folder):
                 mkdir(backup_folder)
-            self._backup_filename = path.join(backup_folder, path.basename(self.filename))
+            self._backup_filename = path.join(backup_folder,
+                                              path.basename(self.filename))
 
         counter = 0
         while path.isfile(self._backup_filename):
@@ -110,15 +116,13 @@ class Disk:
         self.dump_excel = dump_excel
         self.pointer_excel = pointer_excel
         self.ndc_path = path.join(ndc_dir, 'ndc')
+        self.ndc = NDC(self.ndc_path)
         self._file_dir_cache = {}
 
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
-        try:
-            subdir = subdir.decode()
-        except AttributeError:
-            pass
+        subdir = subdir.decode()
         subdir = subdir.rstrip('\\')
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
@@ -146,25 +150,13 @@ class Disk:
                 logging.info("Couldn't decode one of the strings in the folder: %s" % subdir)
                 continue
 
-        #logging.info("Filenames: %s" % filenames)
-        #logging.info("Subdirs: %s" % subdirs)
-        #print(filenames)
         return filenames, subdirs
 
     def find_file(self, target_file):
-        cmd = '"%s" fa "%s" 0 "" "%s"' % (self.ndc_path, self.filename, target_file)
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-        except CalledProcessError:
-            return None
-        result_hits = result.split(b'\r\n')
-        result_hit_paths = [r.split(b'\t')[0] for r in result_hits]
-        result_hit_paths = result_hit_paths[:-2]    # remove weird last two outputs
-        result_hit_dirs = [r[:-1*(len(target_file))] for r in result_hit_paths] # remove filename
-        if result_hit_paths and not result_hit_dirs:
-            result_hit_dirs = [b'']
+        results = self.ndc.find_all(self.filename, target_file)
+        # remove filename
+        result_hit_dirs = [r[0][:-1 * (len(target_file))]
+                           for r in results]
         # Returns an empty ilst if they're not found...
         return result_hit_dirs
 
@@ -184,33 +176,6 @@ class Disk:
                     return d.decode('utf-8')
         self._file_dir_cache[tuple(target_filenames)] = None
         return None
-        #if len(find_first_output) == 0:
-        #    return None
-        #else:
-        #    return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
-
-    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
-        # TODO: Add lzss decompress support.
-
-        cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
-        if path_in_disk:
-            cmd +=  '"%s"' % path.join(path_in_disk, filename)
-        else:
-            cmd += '"%s"' % filename
-
-        if dest_path is None:
-            dest_path = self.dir
-
-        cmd += ' "' + dest_path + '"'
-
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-        except CalledProcessError:
-            raise FileNotFoundError('File not found in disk', [])
-
-        # return Gamefile(filename, self)
 
     def delete(self, filename, path_in_disk=None):
         filename_without_path = filename.split('\\')[-1]
@@ -218,20 +183,24 @@ class Disk:
         if path_in_disk:
             del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
         else:
-            del_cmd += ' "' + filename_without_path  + '"'
+            del_cmd += ' "' + filename_without_path + '"'
 
         try:
-            result = check_output(del_cmd)
+            check_output(del_cmd)
         except CalledProcessError:
             sleep(.5)
             try:
-                result = check_output(del_cmd)
+                check_output(del_cmd)
             except CalledProcessError:
                 raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
             raise ReadOnlyDiskError("Disk is in read-only mode", [])
 
-    def insert(self, filepath, path_in_disk=None, delete_original=True, delete_necessary=True):
+    def insert(self,
+               filepath,
+               path_in_disk=None,
+               delete_original=True,
+               delete_necessary=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
@@ -248,23 +217,12 @@ class Disk:
         if path_in_disk:
             cmd += ' ' + path_in_disk
 
-        #print(cmd)
         logging.info(cmd)
 
         try:
-            result = check_output(cmd)
+            check_output(cmd)
         except PermissionError:
-            sleep(.5)
-            try:
-                result = check_output(cmd)
-            except CalledProcessError:
-                raise FileNotFoundError("File not found in disk", [])
-        except CalledProcessError:
-            sleep(.5)
-            try:
-                result = check_output(cmd)
-            except CalledProcessError:
-                raise FileNotFoundError("File not found in disk", [])
+            raise FileNotFoundError("File not found in disk", [])
 
     def backup(self):
         # Handle permissionerrors in client applications...
@@ -321,12 +279,13 @@ class Gamefile(object):
             self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
     def incorporate(self, block):
-        self.filestring = self.filestring.replace(block.original_blockstring, block.blockstring)
+        self.filestring = self.filestring.replace(block.original_blockstring,
+                                                  block.blockstring)
 
     def edit(self, location, data):
         """Write data to a particular location."""
-        self.filestring = self.filestring[:location] + data + self.filestring[location+len(data):]
-        #assert len(self.filestring) == len(self.original_filestring)
+        self.filestring = (self.filestring[:location] + data +
+                           self.filestring[location + len(data):])
         return self.filestring
 
     def edit_pointers_in_range(self, rng, diff):
