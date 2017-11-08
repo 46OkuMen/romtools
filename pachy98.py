@@ -3,6 +3,7 @@
     Reads a json config file, looks for relevant disk images in
 """
 
+from tqdm import tqdm
 import sys
 import logging
 import json
@@ -244,6 +245,10 @@ def except_handler(exc_type, exc_value, exc_traceback):
     )
 
 
+def patch_image(id, image):
+    pass
+
+
 def patch_images(selected_images, cfg):
     backup_directory = pathjoin(exe_dir, 'backup')
     bin_dir = pathjoin(exe_dir, 'bin')
@@ -251,7 +256,8 @@ def patch_images(selected_images, cfg):
     for i, disk_path in enumerate(selected_images):
         image = cfg.images[i]
         disk_directory = pathsplit(disk_path)[0]
-        DiskImage = Disk(disk_path, backup_folder=backup_directory, ndc_dir=bin_dir)
+        DiskImage = Disk(disk_path, backup_folder=backup_directory,
+                         ndc_dir=bin_dir)
 
         if not access(disk_path, W_OK):
             message_wait_close('Can\'t access the file "%s". Make sure the file is not read-only.' % disk_path)
@@ -277,10 +283,7 @@ def patch_images(selected_images, cfg):
                 continue
 
             print('Extracting %s...' % f['name'])
-            paths_in_disk = [
-                p.decode('shift_jis')
-                for p in DiskImage.find_file(f['name'])
-            ]
+            paths_in_disk = DiskImage.find_file(f['name'])
             patch_worked = False
             for j, path_in_disk in enumerate(paths_in_disk):
                 if patch_worked:
@@ -572,7 +575,8 @@ if __name__ == '__main__':
     if confirmation.strip(" ".lower()[0]) == 'n':
         exit_quietly()
 
-    # Get cfg.options related input from the user, then put them in the dict "options".
+    # Get cfg.options related input from the user, then put them in the dict
+    # "options".
     # TODO: Could do this in the Config object instead.
     options = {}
     options['delete_all_first'] = False
@@ -611,11 +615,11 @@ if __name__ == '__main__':
                     patch_list = f['patch']['list']
                 elif f['patch']['type'] == 'boolean':
                     if options[f['patch']['id']]:
-                        patch_list = [f['patch']['true'],]
+                        patch_list = [f['patch']['true']]
                     else:
-                        patch_list = [f['patch']['false'],]
+                        patch_list = [f['patch']['false']]
             else:
-                patch_list = [f['patch'],]
+                patch_list = [f['patch']]
 
             patch_worked = False
             for i, patch in enumerate(patch_list):

@@ -11,8 +11,7 @@ import logging
 from os import path, pardir, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from time import sleep
-from ndc import NDC
+from ndc import NDC, NDCPermissionError
 
 #from lzss import compress
 
@@ -177,24 +176,16 @@ class Disk:
         self._file_dir_cache[tuple(target_filenames)] = None
         return None
 
-    def delete(self, filename, path_in_disk=None):
-        filename_without_path = filename.split('\\')[-1]
-        del_cmd = '"%s" D "%s" 0' % (self.ndc_path, self.filename)
-        if path_in_disk:
-            del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
-        else:
-            del_cmd += ' "' + filename_without_path + '"'
+    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
+        # TODO: Add lzss decompress support.
+        image_path = path.join(path_in_disk, filename)
+        self.ndc.get(self.filename, image_path, dest_path or self.dir)
 
-        try:
-            check_output(del_cmd)
-        except CalledProcessError:
-            sleep(.5)
-            try:
-                check_output(del_cmd)
-            except CalledProcessError:
-                raise ReadOnlyDiskError("Disk is in read-only mode", [])
-
-            raise ReadOnlyDiskError("Disk is in read-only mode", [])
+    def delete(self, filename, path_in_disk=''):
+        self.ndc.delete(
+            self.filename,
+            path.join(path_in_disk, filename)
+        )
 
     def insert(self,
                filepath,
@@ -206,23 +197,14 @@ class Disk:
         filename = path.basename(filepath)
         if delete_original:
             try:
-                self.delete(filename, path_in_disk)
-            except ReadOnlyDiskError:
+                self.ndc.delete(self.filename, filename)
+            except NDCPermissionError:
                 if delete_necessary:
                     raise
                 else:
                     print("Couldn't delete, but continuing anyway")
 
-        cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
-        if path_in_disk:
-            cmd += ' ' + path_in_disk
-
-        logging.info(cmd)
-
-        try:
-            check_output(cmd)
-        except PermissionError:
-            raise FileNotFoundError("File not found in disk", [])
+        self.ndc.put(self.filename, filepath, path_in_disk or '')
 
     def backup(self):
         # Handle permissionerrors in client applications...
@@ -354,3 +336,4 @@ if __name__ == '__main__':
     EVOHDM = Disk('EVO.hdm')
     EVOHDM.insert('AV300.GDT')
     EVOHDM.extract('AV300.GDT')
+

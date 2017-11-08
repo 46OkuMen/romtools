@@ -20,7 +20,8 @@ class Patch:
         self.edited = edited
         self.filename = filename
 
-        self.xdelta_path = path.join(xdelta_dir, 'xdelta3')
+        # self.xdelta_path = path.join(xdelta_dir, 'xdelta3')
+        self.xdelta_path = 'xdelta3'
 
     def create(self):
         if self.edited is None:
@@ -34,13 +35,20 @@ class Patch:
             raise Exception('Something went wrong', [])
 
     def apply(self):
-        if self.edited:
-            cmd = '"%s" -f -d -s "%s" "%s" "%s"' % (self.xdelta_path, self.original, self.filename, self.edited) # SOURCE OUT TARGET
-        else:
+        if not self.edited:
             copyfile(self.original, self.original + "_temp")
             self.edited = self.original
             self.original = self.original + "_temp"
-            cmd = '"%s" -f -d -s "%s" "%s" "%s"' % (self.xdelta_path, self.original, self.filename, self.edited) # SOURCE OUT TARGET
+        cmd = [
+            self.xdelta_path,
+            '-f',
+            '-d',
+            '-s',
+            self.original,
+            self.filename,
+            self.edited,
+        ]
+
         logging.info(cmd)
         try:
             check_output(cmd)
