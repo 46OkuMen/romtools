@@ -11,6 +11,7 @@ bitstring = "*"
 semver = "*"
 jsonschema = "*"
 tqdm = "*"
+ndcpy = "*"
 
 
 [dev-packages]
