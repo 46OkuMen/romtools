@@ -13,7 +13,7 @@ from shutil import copyfile
 from subprocess import check_output, CalledProcessError
 from time import sleep
 
-from lzss import compress
+#from lzss import compress
 
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
@@ -329,8 +329,9 @@ class Gamefile(object):
     def edit_pointers_in_range(self, rng, diff):
         """Edit all the pointers between two file offsets."""
         start, stop = rng
-        #print("Editing pointers in range %s %s" % (hex(start), hex(stop)))
+        #print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
         if diff != 0:
+            #print([p for p in range(start+1, stop+1)])
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
                 for ptr in self.pointers[offset]:
                     ptr.edit(diff)
@@ -351,8 +352,8 @@ class Block(object):
         translations: List of Translation objects.
         """
 
-    def __init__(self, gamefile, xxx_todo_changeme):
-        (start, stop) = xxx_todo_changeme
+    def __init__(self, gamefile, interval):
+        (start, stop) = interval
         self.gamefile = gamefile
         self.start = start
         self.stop = stop
@@ -373,3 +374,19 @@ if __name__ == '__main__':
     EVOHDM = Disk('EVO.hdm')
     EVOHDM.insert('AV300.GDT')
     EVOHDM.extract('AV300.GDT')
+
+class Overflow(object):
+    """An overflowing string.
+
+    """
+
+    # o[0] is location, o[1] is the string, o[2] is the parent block, o[3] is the first string's original location
+
+    def __init__(self, location, string, parent_block, first_string_location):
+        self.location = location
+        self.string = string
+        self.block = parent_block
+        self.first_string_location = first_string_location
+
+    def move(spare):
+        pass
