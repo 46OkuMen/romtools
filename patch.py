@@ -4,7 +4,7 @@ Utils for creating xdelta patches.
 import logging
 from subprocess import check_output, CalledProcessError
 from shutil import copyfile
-from os import remove, path
+from os import remove
 
 
 class PatchChecksumError(Exception):
@@ -26,13 +26,20 @@ class Patch:
     def create(self):
         if self.edited is None:
             raise Exception
-        cmd = '"%s" -f -s "%s" "%s" "%s' % (self.xdelta_path, self.original, self.edited, self.filename)
+        cmd = [
+            self.xdelta_path,
+            '-f',
+            '-s',
+            self.original,
+            self.edited,
+            self.filename,
+        ]
         print(cmd)
         logging.info(cmd)
         try:
             check_output(cmd)
-        except CalledProcessError:
-            raise Exception('Something went wrong', [])
+        except CalledProcessError as e:
+            raise Exception(e.output)
 
     def apply(self):
         if not self.edited:
