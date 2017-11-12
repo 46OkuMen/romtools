@@ -42,9 +42,9 @@
         },
         "ndcpy": {
             "hashes": [
-                "sha256:fc7e6b651f15eb1ca2648abd339882d5f9dd2a5b3c58ae806b556e8148f86d83"
+                "sha256:76139f5f6e7e7b89ab3f82764dd365afbc2cc570bc909f2d401c23ce9c05be24"
             ],
-            "version": "==0.1"
+            "version": "==0.1.1"
         },
         "semver": {
             "hashes": [
