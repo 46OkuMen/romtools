@@ -12,6 +12,9 @@ semver = "*"
 jsonschema = "*"
 tqdm = "*"
 ndcpy = "*"
+openpyxl = "*"
+pygsheets = "*"
+xlsxwriter = "*"
 
 
 [dev-packages]
