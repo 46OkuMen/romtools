@@ -11,7 +11,7 @@ bitstring = "*"
 semver = "*"
 jsonschema = "*"
 tqdm = "*"
-ndcpy = "*"
+ndcpy = {git = "https://github.com/meunierd/ndcpy.git@b8cbb5f63f7868af092dfcebeeee21d0965a82b6", editable=true}
 openpyxl = "*"
 pygsheets = "*"
 xlsxwriter = "*"
