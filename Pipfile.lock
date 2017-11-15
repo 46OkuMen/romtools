@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "2ea84e3205d527a122c6846c8f5aa75459f20133377acd610ce498591cd2339e"
+            "sha256": "b141b4e722c5e333dd1f46cac47ac589d93e63aa65bff5417d07471218428d75"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -67,7 +67,8 @@
         },
         "ndcpy": {
             "editable": true,
-            "git": "https://github.com/meunierd/ndcpy.git@b8cbb5f63f7868af092dfcebeeee21d0965a82b6"
+            "git": "https://github.com/meunierd/ndcpy.git",
+            "ref": "b8cbb5f63f7868af092dfcebeeee21d0965a82b6"
         },
         "oauth2client": {
             "hashes": [

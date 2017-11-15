@@ -20,9 +20,12 @@ from os import (
     _exit,
 )
 from shutil import copyfile
-from os.path import isfile, isdir
-from os.path import split as pathsplit
-from os.path import join as pathjoin
+from os.path import (
+    isfile,
+    isdir,
+    split as pathsplit,
+    join as pathjoin,
+)
 from disk import (
     Disk,
     HARD_DISK_FORMATS,

@@ -16,6 +16,7 @@ ASCII_MODE = 0
 
 THRESHOLD = 3
 
+
 def dump(files):
     worksheet = workbook.add_worksheet('Everything')
     worksheet.write(0, 0, 'Offset', header)
@@ -89,7 +90,7 @@ def dump(files):
                     jp = s[1].decode('shift-jis')
                 except UnicodeDecodeError:
                     print("Couldn't decode that")
-                    continue 
+                    continue
 
                 if len(jp.strip()) == 0:
                     continue
