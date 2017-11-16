@@ -1,0 +1,21 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+bitstring = "*"
+semver = "*"
+jsonschema = "*"
+tqdm = "*"
+ndcpy = {git = "https://github.com/meunierd/ndcpy.git@46bdedf78e02f3a2c6e5f9e22931d425fa939efe", editable=true}
+openpyxl = "*"
+pygsheets = "*"
+xlsxwriter = "*"
+
+
+[dev-packages]
+

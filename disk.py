@@ -8,10 +8,10 @@ http://euee.web.fc2.com/tool/nd.html
 NDC version is Ver.0 alpha05d 2017/06/11.
 """
 import logging
-from os import path, pardir, remove, mkdir
+from os import path, pardir, mkdir
 from shutil import copyfile
 from subprocess import check_output, CalledProcessError
-from time import sleep
+from ndc import NDC, NDCPermissionError
 
 #from lzss import compress
 
@@ -27,21 +27,23 @@ HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # VHD: VirtualPC (created by euee)
 # SLH: SL9821
 
-# Don't know anything about the DIP format, but this seems to be the common header:
+# Don't know anything about the DIP format, but this seems to be the common
+# header:
 DIP_HEADER = b'\x01\x08\x00\x13\x41\x00\x01'
 
+
 def is_valid_disk_image(filename):
-    #logging.info("Checking is_valid_disk_image on %s" % filename)
+    # logging.info("Checking is_valid_disk_image on %s" % filename)
     just_filename = path.split(filename)[1]
     if just_filename.lower().split('.')[-1] in SUPPORTED_FILE_FORMATS:
         return True
     elif len(just_filename.split('.')) == 1:
-        #logging.info("just_filename.lower().split('.') length is 1. trying is_DIP now")
         return is_DIP(filename)
+
 
 def is_DIP(target):
     """Detect a DIP file if extension not specified."""
-    #logging.info("Calling is_DIP on %s" % target)
+    # logging.info("Calling is_DIP on %s" % target)
     try:
         with open(target, 'rb') as f:
             file_header = f.read(7)
@@ -53,7 +55,7 @@ def is_DIP(target):
 
 
 class FileNotFoundError(Exception):
-    def __init__(self, message, errors):
+    def __init__(self, message, errors=[]):
         super(FileNotFoundError, self).__init__(message)
 
 
@@ -63,12 +65,17 @@ class ReadOnlyDiskError(Exception):
 
 
 class FileFormatNotSupportedError(Exception):
-    def __init__(self, message, errors):
+    def __init__(self, message, errors=[]):
         super(FileFormatNotSupportedError, self).__init__(message)
 
 
 class Disk:
-    def __init__(self, filename, backup_folder=None, dump_excel=None, pointer_excel=None, ndc_dir=''):
+    def __init__(self,
+                 filename,
+                 backup_folder=None,
+                 dump_excel=None,
+                 pointer_excel=None,
+                 ndc_dir=''):
         self.filename = filename
 
         just_filename = path.split(filename)[1]
@@ -80,17 +87,18 @@ class Disk:
                 self.extension = 'dip'
 
         if self.extension not in SUPPORTED_FILE_FORMATS:
-            raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension, [])
+            raise FileFormatNotSupportedError('Disk format "%s" is not supported' % self.extension)
 
-        # self.original_extension = self.extension
         self.dir = path.abspath(path.join(filename, pardir))
 
         if backup_folder is None:
-            self._backup_filename = path.join(self.dir, 'backup', path.basename(self.filename))
+            self._backup_filename = path.join(self.dir, 'backup',
+                                              path.basename(self.filename))
         else:
             if not path.isdir(backup_folder):
                 mkdir(backup_folder)
-            self._backup_filename = path.join(backup_folder, path.basename(self.filename))
+            self._backup_filename = path.join(backup_folder,
+                                              path.basename(self.filename))
 
         counter = 0
         while path.isfile(self._backup_filename):
@@ -107,15 +115,13 @@ class Disk:
         self.dump_excel = dump_excel
         self.pointer_excel = pointer_excel
         self.ndc_path = path.join(ndc_dir, 'ndc')
+        self.ndc = NDC(self.ndc_path)
         self._file_dir_cache = {}
 
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
-        try:
-            subdir = subdir.decode()
-        except AttributeError:
-            pass
+        subdir = subdir.decode()
         subdir = subdir.rstrip('\\')
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
@@ -143,25 +149,13 @@ class Disk:
                 logging.info("Couldn't decode one of the strings in the folder: %s" % subdir)
                 continue
 
-        #logging.info("Filenames: %s" % filenames)
-        #logging.info("Subdirs: %s" % subdirs)
-        #print(filenames)
         return filenames, subdirs
 
     def find_file(self, target_file):
-        cmd = '"%s" fa "%s" 0 "" "%s"' % (self.ndc_path, self.filename, target_file)
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-        except CalledProcessError:
-            return None
-        result_hits = result.split(b'\r\n')
-        result_hit_paths = [r.split(b'\t')[0] for r in result_hits]
-        result_hit_paths = result_hit_paths[:-2]    # remove weird last two outputs
-        result_hit_dirs = [r[:-1*(len(target_file))] for r in result_hit_paths] # remove filename
-        if result_hit_paths and not result_hit_dirs:
-            result_hit_dirs = [b'']
+        results = self.ndc.find_all(self.filename, target_file)
+        # remove filename
+        result_hit_dirs = [r[0][:-1 * (len(target_file))]
+                           for r in results]
         # Returns an empty ilst if they're not found...
         return result_hit_dirs
 
@@ -181,87 +175,36 @@ class Disk:
                     return d.decode('utf-8')
         self._file_dir_cache[tuple(target_filenames)] = None
         return None
-        #if len(find_first_output) == 0:
-        #    return None
-        #else:
-        #    return list(common_dirs)[0].decode('utf-8')      # TODO: Not sure what to do if multiple results...?
 
     def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
+        image_path = path.join(path_in_disk, filename)
+        self.ndc.get(self.filename, image_path, dest_path or self.dir)
 
-        cmd = '"%s" G "%s" 0 ' % (self.ndc_path, self.filename)
-        if path_in_disk:
-            cmd +=  '"%s"' % path.join(path_in_disk, filename)
-        else:
-            cmd += '"%s"' % filename
+    def delete(self, filename, path_in_disk=''):
+        self.ndc.delete(
+            self.filename,
+            path.join(path_in_disk, filename)
+        )
 
-        if dest_path is None:
-            dest_path = self.dir
-
-        cmd += ' "' + dest_path + '"'
-
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-        except CalledProcessError:
-            raise FileNotFoundError('File not found in disk', [])
-
-        # return Gamefile(filename, self)
-
-    def delete(self, filename, path_in_disk=None):
-        filename_without_path = filename.split('\\')[-1]
-        del_cmd = '"%s" D "%s" 0' % (self.ndc_path, self.filename)
-        if path_in_disk:
-            del_cmd += ' "' + path.join(path_in_disk, filename_without_path) + '"'
-        else:
-            del_cmd += ' "' + filename_without_path  + '"'
-
-        try:
-            result = check_output(del_cmd)
-        except CalledProcessError:
-            sleep(.5)
-            try:
-                result = check_output(del_cmd)
-            except CalledProcessError:
-                raise ReadOnlyDiskError("Disk is in read-only mode", [])
-
-            raise ReadOnlyDiskError("Disk is in read-only mode", [])
-
-    def insert(self, filepath, path_in_disk=None, delete_original=True, delete_necessary=True):
+    def insert(self,
+               filepath,
+               path_in_disk=None,
+               delete_original=True,
+               delete_necessary=True):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
         if delete_original:
             try:
-                self.delete(filename, path_in_disk)
-            except ReadOnlyDiskError:
+                self.ndc.delete(self.filename, filename)
+            except NDCPermissionError:
                 if delete_necessary:
                     raise
                 else:
                     print("Couldn't delete, but continuing anyway")
 
-        cmd = '"%s" P "%s" 0 "%s"' % (self.ndc_path, self.filename, filepath)
-        if path_in_disk:
-            cmd += ' ' + path_in_disk
-
-        #print(cmd)
-        logging.info(cmd)
-
-        try:
-            result = check_output(cmd)
-        except PermissionError:
-            sleep(.5)
-            try:
-                result = check_output(cmd)
-            except CalledProcessError:
-                raise FileNotFoundError("File not found in disk", [])
-        except CalledProcessError:
-            sleep(.5)
-            try:
-                result = check_output(cmd)
-            except CalledProcessError:
-                raise FileNotFoundError("File not found in disk", [])
+        self.ndc.put(self.filename, filepath, path_in_disk or '')
 
     def backup(self):
         # Handle permissionerrors in client applications...
@@ -318,12 +261,13 @@ class Gamefile(object):
             self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
 
     def incorporate(self, block):
-        self.filestring = self.filestring.replace(block.original_blockstring, block.blockstring)
+        self.filestring = self.filestring.replace(block.original_blockstring,
+                                                  block.blockstring)
 
     def edit(self, location, data):
         """Write data to a particular location."""
-        self.filestring = self.filestring[:location] + data + self.filestring[location+len(data):]
-        #assert len(self.filestring) == len(self.original_filestring)
+        self.filestring = (self.filestring[:location] + data +
+                           self.filestring[location + len(data):])
         return self.filestring
 
     def edit_pointers_in_range(self, rng, diff):
@@ -369,18 +313,13 @@ class Block(object):
         return "%s (%s, %s)" % (self.gamefile, hex(self.start), hex(self.stop))
 
 
-if __name__ == '__main__':
-
-    EVOHDM = Disk('EVO.hdm')
-    EVOHDM.insert('AV300.GDT')
-    EVOHDM.extract('AV300.GDT')
-
 class Overflow(object):
     """An overflowing string.
 
     """
 
-    # o[0] is location, o[1] is the string, o[2] is the parent block, o[3] is the first string's original location
+    # o[0] is location, o[1] is the string, o[2] is the parent block, o[3] is
+    # the first string's original location
 
     def __init__(self, location, string, parent_block, first_string_location):
         self.location = location
@@ -390,3 +329,11 @@ class Overflow(object):
 
     def move(spare):
         pass
+
+
+if __name__ == '__main__':
+
+    EVOHDM = Disk('EVO.hdm')
+    EVOHDM.insert('AV300.GDT')
+    EVOHDM.extract('AV300.GDT')
+
