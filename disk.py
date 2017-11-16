@@ -183,8 +183,9 @@ class Disk:
 
     def delete(self, filename, path_in_disk=''):
         self.ndc.delete(
-            self.filename,
-            path.join(path_in_disk, filename)
+            image=self.filename,
+            path=path.join(path_in_disk, filename),
+            partition=0
         )
 
     def insert(self,
@@ -197,7 +198,11 @@ class Disk:
         filename = path.basename(filepath)
         if delete_original:
             try:
-                self.ndc.delete(self.filename, filename)
+                self.ndc.delete(
+                    image=self.filename,
+                    path=path.join(path_in_disk, filename),
+                    )
+                #self.ndc.delete(self.filename, filename)
             except NDCPermissionError:
                 if delete_necessary:
                     raise
