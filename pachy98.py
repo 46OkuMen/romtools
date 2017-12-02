@@ -153,6 +153,8 @@ def input_catch_keyboard_interrupt(prompt):
 
 
 def check_for_update(local_version, remote_version_url):
+    if not (local_version and remote_version_url):
+        return
     try:
         print("Checking for updates to this translation... ", end="")
         remote_version = (urlopen(remote_version_url)
@@ -404,7 +406,7 @@ if __name__ == '__main__':
           (cfg.info['game'], cfg.info['language'], cfg.info['version'],
            cfg.info['author'], cfg.info['authorsite']))
 
-    check_for_update(cfg.info['version'], cfg.info['versionurl'])
+    check_for_update(cfg.info.get('version'), cfg.info.get('versionurl'))
 
     expected_image_length = len([i for i in cfg.images
                                  if i['type'] != 'disabled'])

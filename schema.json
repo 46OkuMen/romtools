@@ -5,7 +5,7 @@
   "properties": {
     "info": {
       "type": "object",
-      "required": ["game", "language", "version", "author", "authorsite"],
+      "required": ["game", "language", "author", "authorsite"],
       "properties": {
         "game": { "type": "string" },
         "language": { "type": "string" },
