@@ -26,7 +26,7 @@ from os.path import (
     split as pathsplit,
     join as pathjoin,
 )
-from disk import (
+from romtools.disk import (
     Disk,
     HARD_DISK_FORMATS,
     is_valid_disk_image,
@@ -34,7 +34,7 @@ from disk import (
     FileNotFoundError,
     FileFormatNotSupportedError,
 )
-from patch import Patch, PatchChecksumError
+from romtools.patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 

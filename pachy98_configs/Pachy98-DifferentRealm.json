@@ -1,0 +1,30 @@
+{
+  "info":
+  {
+    "game": "Different Realm",
+    "language": "English",
+    "version": "v0.0.1",
+    "author": "46 OkuMen",
+    "authorsite": "http://46okumen.com"
+  },
+  "images":[             
+    {
+      "id":0,
+      "name":"HDI",
+      "type":"hdd",
+      "hdd": {
+        "files":[
+          {
+            "name":"OPEN.EXE",
+            "patch":"OPEN.EXE.xdelta"
+          },
+          {
+            "name":"CR1.EXE",
+            "patch":"CR1.EXE.xdelta"
+          }
+        ]
+      }
+    }
+  ],
+  "options":[]
+}
