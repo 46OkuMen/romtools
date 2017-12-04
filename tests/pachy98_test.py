@@ -1,6 +1,7 @@
 """
     Tests for pachy98.
     You must supply your own disks in the original_roms directory.
+    There are quite a few, mostly from Neo Kobe.
 """
 
 import unittest
@@ -20,24 +21,31 @@ EVO_FDs = ['46 Okunen Monogatari - The Sinkaron (J) A user.FDI',
            '46 Okunen Monogatari - The Sinkaron (J) B 3.FDI',
            '46 Okunen Monogatari - The Sinkaron (J) B 4.FDI', ]
 
-"""
-BRANDISH_FDs = ['Brandish 2 Renewal (Disk 0 - User).hdm',
-                'Brandish 2 Renewal (Disk 1).hdm',
-                'Brandish 2 Renewal (Disk 2).hdm',
-                'Brandish 2 Renewal (Disk 3).hdm',
-                'Brandish 2 Renewal (Disk 4).hdm',
-                'Brandish 2 Renewal (Disk 5).hdm']
-"""
+RUSTY_HDI = 'Rusty.hdi'
+RUSTY_FDs = ['Rusty (Game disk A).hdm',
+             'Rusty (Game disk B).hdm',
+             'Rusty (Game disk C).hdm',
+             'Rusty (Opening disk).hdm',
+             'Rusty (System disk).hdm', ]
+
+CRW_FDs = ['CRW_data1.FDI',
+           'CRW_data2.FDI',
+           'CRW_demo.FDI',
+           'CRW_system.FDI',]
 
 EVO_HDI_PATH = os.path.join(ROM_DIR, EVO_HDI)
-EVO_FD_PATHS = [os.path.join(ROM_DIR, fd) for fd in EVO_FDs]
-#BRANDISH_FD_PATHS = [os.path.join(ROM_DIR, fd) for fd in BRANDISH_FDs]
+RUSTY_HDI_PATH = os.path.join(ROM_DIR, RUSTY_HDI)
 
 EVO_CFG = 'Pachy98-EVO.json'
-BRANDISH_CFG = 'Pachy98-br2r.json'
+RUSTY_CFG = 'Pachy98-Rusty.json'
+CRW_CFG = 'Pachy98-CRW.json'
+BRANDISH2_CFG = 'Pachy98-br2r.json'
 
 EVO_CFG_PATH = os.path.join(CFG_DIR, EVO_CFG)
-BRANDISH_CFG_PATH = os.path.join(CFG_DIR, EVO_CFG)
+RUSTY_CFG_PATH = os.path.join(CFG_DIR, RUSTY_CFG)
+CRW_CFG_PATH = os.path.join(CFG_DIR, CRW_CFG)
+
+# TODO: I'd love to auto-generate these classes...
 
 class EvoHDTest(unittest.TestCase):
     def setUp(self):
@@ -55,13 +63,13 @@ class EvoHDTest(unittest.TestCase):
         penultimate_line = p.stdout.splitlines()[-2]
         assert b'Patching complete!' in penultimate_line
 
+
 class EvoFDTest(unittest.TestCase):
     def setUp(self):
         shutil.copy(EVO_CFG_PATH, EVO_CFG)
 
         for fd in EVO_FDs:
             shutil.copy(os.path.join(ROM_DIR, fd), fd)
-
 
     def tearDown(self):
         os.remove(EVO_CFG)
@@ -73,26 +81,57 @@ class EvoFDTest(unittest.TestCase):
 
         penultimate_line = p.stdout.splitlines()[-2]
         assert b'Patching complete!' in penultimate_line
-        #assert b"Error. Restoring from backup..." not in p.stdout
-        #assert b"target window checksum mismatch" not in p.stdout
 
-"""
-class BrandishFDTest(unittest.TestCase):
+
+class RustyHDTest(unittest.TestCase):
     def setUp(self):
-        shutil.copy(BRANDISH_CFG_PATH, BRANDISH_CFG)
-
-        for fd in BRANDISH_FDs:
-            shutil.copy(os.path.join(ROM_DIR, fd), fd)
-
+        shutil.copy(RUSTY_CFG_PATH, RUSTY_CFG)
+        shutil.copy(RUSTY_HDI_PATH, RUSTY_HDI)
 
     def tearDown(self):
-        os.remove(BRANDISH_CFG)
-        for fd in BRANDISH_FDs:
+        os.remove(RUSTY_CFG)
+        os.remove(RUSTY_HDI)
+
+    def test_patch(self):
+        assert os.path.exists(RUSTY_HDI)
+        p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\ny\n')
+
+        penultimate_line = p.stdout.splitlines()[-2]
+        assert b'Patching complete!' in penultimate_line
+
+
+class RustyFDTest(unittest.TestCase):
+    def setUp(self):
+        shutil.copy(RUSTY_CFG_PATH, RUSTY_CFG)
+
+        for fd in RUSTY_FDs:
+            shutil.copy(os.path.join(ROM_DIR, fd), fd)
+
+    def tearDown(self):
+        os.remove(RUSTY_CFG)
+        for fd in RUSTY_FDs:
+            os.remove(fd)
+
+    def test_patch(self):
+        p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\ny\n')
+
+        penultimate_line = p.stdout.splitlines()[-2]
+        assert b'Patching complete!' in penultimate_line
+
+class CRWFDTest(unittest.TestCase):
+    def setUp(self):
+        shutil.copy(CRW_CFG_PATH, CRW_CFG)
+
+        for fd in CRW_FDs:
+            shutil.copy(os.path.join(ROM_DIR, fd), fd)
+
+    def tearDown(self):
+        os.remove(CRW_CFG)
+        for fd in CRW_FDs:
             os.remove(fd)
 
     def test_patch(self):
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\n')
 
-        assert b"Error. Restoring from backup..." not in p.stdout
-        assert b"target window checksum mismatch" not in p.stdout
-"""
+        penultimate_line = p.stdout.splitlines()[-2]
+        assert b'Patching complete!' in penultimate_line
