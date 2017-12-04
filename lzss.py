@@ -43,8 +43,8 @@ def pointer_pack(first, second):
 
 
 def write_little_endian(file, number, bytes=1):
-    for i in range(1, bytes+1):
-        shift = 8*(i-1)
+    for i in range(1, bytes + 1):
+        shift = 8 * (i - 1)
         value = (number & (0xff << shift)) >> shift
         file.write(chr(value))
 
@@ -55,60 +55,13 @@ def pointer_length(p):
 
 
 def pointer_offset(p):
-    """The offset is something like the top three nybbles of the packed bytes."""
+    """
+    The offset is something like the top three nybbles of the packed bytes.
+    """
     # 4 bytes: a b c d
     # offset is 0xcab, which is c << 12
     # Ex. 0x0700 should return 15h.
-    #return (p & 0xF0) << 8) + (p >> 8) + 8
     return ((p & 0xF0) << 4) + (p >> 8) + 0x12
-
-
-assert interpret_flag('0x00') == [False, False, False, False, False, False, False, False]
-assert interpret_flag(0) == interpret_flag('0x00')
-assert interpret_flag('0xff') == [True,  True,  True,  True,  True,  True,  True,  True]
-assert interpret_flag('0x7c') == [False, False, True,  True,  True,  True,  True,  False]
-assert interpret_flag('0x76') == [False, True,  True,  False, True,  True,  True,  False]
-
-assert flag_length('0x00') == 16
-assert flag_length('0xFF') == 8
-assert flag_length('0x7c') == 11
-
-assert pointer_offset(0x0000) == 0x12
-assert pointer_offset(0x0700) == 0x19
-assert pointer_offset(0x3800) == 0x4a
-assert pointer_offset(0x4401) == 0x56
-assert pointer_offset(0x4c14) == 0x15e
-assert pointer_offset(0x3920) == 0x24b
-
-
-def decompress(f):
-    # f is the bytes in a file.
-    output = []
-
-    # Circular buffer of size 0x1000, all values initialized to 0
-    buf = [0] * 0x1000
-
-    cursor = 0
-    while True:
-        # Start by reading a flag. Its individual bits tell you whether the following
-        # bytes are literals (1) or pointers to locations in buf (0).
-        # Also, you read the bits from lowest-to-highest value.
-
-
-        # Example: 0x7c = 0 1 1 1 1 1 0 0
-        #                      flip it:
-        #                 0 0 1 1 1 1 1 0
-        #           ptr, ptr, lit, lit, lit, lit, lit, ptr
-
-        # Pointers are two bytes long and little-endian; literals are one byte long.
-        #         4bytes of ptrs, 5 literal, 2bytes ptr
-        flag = bytes.read(1)
-
-        # "things" is the 8 things you're going to read, literals or pointers.
-        # interpret_flag takes a number (7c) and converts it to that backwards bit array.
-        # Example: [0, 0, 1, 1, 1, 1, 1, 0]
-        things = interpret_flag(flag)
-
 
 
 def decompress(filename):
@@ -151,7 +104,7 @@ def decompress(filename):
                     # as it's writing them!!
                     # So you need to access buf one byte at a time to allow that.
                     for b in range(0, length):
-                        pointed_byte = buf[(offset+b) % 0x1000]
+                        pointed_byte = buf[(offset + b) % 0x1000]
                         buf[cursor % 0x1000] = pointed_byte
                         output.append(pointed_byte)
                         cursor += 1
@@ -159,7 +112,7 @@ def decompress(filename):
 
             flag = f.read(1)
             try:
-                print(hex(cursor), hex(ord(flag)), ":", end=' ') 
+                print(hex(cursor), hex(ord(flag)), ":", end=' ')
                 _ = hex(ord(flag))
             except TypeError:
                 # print "end of input"
