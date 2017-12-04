@@ -60,6 +60,9 @@ class Config:
         self.all_filenames = set()
         self.new_files = []
 
+        # Use this when searching through HDDs
+        self.hdd_filenames = set()
+
         for i in self.images:
             try:
                 floppy_files = i['floppy']['files']
@@ -79,7 +82,15 @@ class Config:
                     except KeyError:
                         self.all_files.append(hf)
                         self.all_filenames.add(hf['name'])
+            try:
+                hdd_files = i['hdd']['files']
+                for hf in hdd_files:
+                    self.hdd_filenames.add(hf['name'])
+            except KeyError:
+                pass
+
         self.all_filenames = list(self.all_filenames)
+        self.hdd_filenames = list(self.hdd_filenames)
 
         self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
 
@@ -474,9 +485,10 @@ if __name__ == '__main__':
         disks_in_dir = [Disk(f, ndc_dir=bin_dir) for f in image_paths_in_dir]
 
         for image in cfg.images:
+            logging.info("Looking for these files: %s" % cfg.hdd_filenames)
             if image['type'] == 'mixed' or image['type'] == 'hdd':
                 for d in disks_in_dir:
-                    if all([d.find_file(filename) for filename in cfg.all_filenames]):
+                    if all([d.find_file(filename) for filename in cfg.hdd_filenames]):
                         selected_images = [d.filename]
                         hd_found = True
                         break
