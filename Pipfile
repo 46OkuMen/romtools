@@ -19,3 +19,4 @@ xlsxwriter = "*"
 
 [dev-packages]
 
+nose = "*"

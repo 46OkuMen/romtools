@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+pachy98-log.txt
+backup
+bin
