@@ -38,7 +38,7 @@ from romtools.patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = 'v0.19.0'
+VERSION = 'v0.19.1'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']

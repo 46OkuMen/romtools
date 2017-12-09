@@ -20,8 +20,9 @@ class Patch:
         self.edited = edited
         self.filename = filename
 
-        # self.xdelta_path = path.join(xdelta_dir, 'xdelta3')
-        self.xdelta_path = 'xdelta3'
+        # Need to have this absolute path for xdelta3 to be found.
+        self.xdelta_path = path.join(xdelta_dir, 'xdelta3')
+        # self.xdelta_path = 'xdelta3'
 
     def create(self):
         if self.edited is None:
