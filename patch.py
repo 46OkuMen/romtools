@@ -4,7 +4,7 @@ Utils for creating xdelta patches.
 import logging
 from subprocess import check_output, CalledProcessError
 from shutil import copyfile
-from os import remove
+from os import remove, path
 
 
 class PatchChecksumError(Exception):
