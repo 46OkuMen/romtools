@@ -5,8 +5,8 @@
 """
 
 import unittest
-import os, sys, shutil
-import ndcpy
+import os
+import shutil
 from subprocess import run, PIPE
 #from romtools.disk import Disk, Gamefile, Block, Overflow
 #from romtools.dump import DumpExcel, PointerExcel
@@ -47,6 +47,7 @@ CRW_CFG_PATH = os.path.join(CFG_DIR, CRW_CFG)
 
 # TODO: I'd love to auto-generate these classes...
 
+
 class EvoHDTest(unittest.TestCase):
     def setUp(self):
         shutil.copy(EVO_CFG_PATH, EVO_CFG)
@@ -56,6 +57,7 @@ class EvoHDTest(unittest.TestCase):
         os.remove(EVO_CFG)
         os.remove(EVO_HDI)
 
+    @unittest.skip('No disk image')
     def test_patch(self):
         assert os.path.exists(EVO_HDI)
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\n')
@@ -76,6 +78,7 @@ class EvoFDTest(unittest.TestCase):
         for fd in EVO_FDs:
             os.remove(fd)
 
+    @unittest.skip('No disk image')
     def test_patch(self):
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\n')
 
@@ -92,6 +95,7 @@ class RustyHDTest(unittest.TestCase):
         os.remove(RUSTY_CFG)
         os.remove(RUSTY_HDI)
 
+    @unittest.skip('No disk image')
     def test_patch(self):
         assert os.path.exists(RUSTY_HDI)
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\ny\n')
@@ -112,11 +116,13 @@ class RustyFDTest(unittest.TestCase):
         for fd in RUSTY_FDs:
             os.remove(fd)
 
+    @unittest.skip('No disk image')
     def test_patch(self):
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\ny\n')
 
         penultimate_line = p.stdout.splitlines()[-2]
         assert b'Patching complete!' in penultimate_line
+
 
 class CRWFDTest(unittest.TestCase):
     def setUp(self):
@@ -130,6 +136,7 @@ class CRWFDTest(unittest.TestCase):
         for fd in CRW_FDs:
             os.remove(fd)
 
+    @unittest.skip('No disk image')
     def test_patch(self):
         p = run(['python', 'pachy98.py'], stdout=PIPE, input=b'y\n')
 
