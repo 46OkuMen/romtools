@@ -1,0 +1,15 @@
+---
+environment:
+    matrix:
+        - PYTHON: "C:\\Python36"
+build: off
+install:
+    - cmd: "SET PATH=C:\\Python36;C:\\Python36\\Scripts;%PATH%"
+    - cmd: "pip install pipenv"
+    - cmd: "pipenv install"
+    - cmd: "curl http://euee.web.fc2.com/tool/NDC0A06.LZH -o ndc.lzh"
+    - cmd: "mkdir -p bin"
+    - cmd: "7z x ndc.lzh -obin"
+    - cmd: "del ndc.lzh"
+test_script:
+    - "pipenv run nosetests"
