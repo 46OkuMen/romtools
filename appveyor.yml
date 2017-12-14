@@ -1,15 +1,19 @@
 ---
 environment:
     matrix:
-        - PYTHON: "C:\\Python36"
+        - PYTHON: "C:\\Python34"
 build: off
 install:
-    - cmd: "SET PATH=C:\\Python36;C:\\Python36\\Scripts;%PATH%"
+    - cmd: "SET PATH=C:\\Python34;C:\\Python34\\Scripts;%PATH%"
     - cmd: "pip install pipenv"
     - cmd: "pipenv install"
     - cmd: "curl http://euee.web.fc2.com/tool/NDC0A06.LZH -o ndc.lzh"
     - cmd: "mkdir -p bin"
     - cmd: "7z x ndc.lzh -obin"
     - cmd: "del ndc.lzh"
+    - cmd: "curl https://github.com/jmacd/xdelta/archive/v3.1.0.zip -o xdelta.zip"
+    - cmd: "7z x xdelta.zip -obin"
+    - cmd: "del xdelta.zip"
+    - cmd: "pyinstaller pachy98.spec"
 test_script:
     - "pipenv run nosetests"

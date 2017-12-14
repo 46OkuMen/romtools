@@ -161,19 +161,24 @@ class DumpExcel(object):
         self.workbook = load_workbook(self.path)
         self.control_codes = control_codes
 
-    def get_translations(self, target, include_blank=False):
+    def get_translations(self, target, sheet_name=None, include_blank=False):
         """Get the translations for a file."""
         # Accepts a block, gamefile, or filename as "target".
+        # If sheet_name is defined, the target will be the filenamne within that multi-file sheet.
         trans = []    # translations[offset] = Translation()
-        try:
-            worksheet = self.workbook.get_sheet_by_name(target.gamefile.filename)
-        except AttributeError:
+
+        if sheet_name:
+            worksheet = self.workbook.get_sheet_by_name(sheet_name)
+        else:
             try:
-                worksheet = self.workbook.get_sheet_by_name(target.filename)
-            except KeyError:
-                worksheet = self.workbook.get_sheet_by_name(target.filename.lstrip('decompressed_'))
+                worksheet = self.workbook.get_sheet_by_name(target.gamefile.filename)
             except AttributeError:
-                worksheet = self.workbook.get_sheet_by_name(target)
+                try:
+                    worksheet = self.workbook.get_sheet_by_name(target.filename)
+                except KeyError:
+                    worksheet = self.workbook.get_sheet_by_name(target.filename.lstrip('decompressed_'))
+                except AttributeError:
+                    worksheet = self.workbook.get_sheet_by_name(target)
 
         first_row = list(worksheet.rows)[0]
         header_values = [t.value for t in first_row]
@@ -187,8 +192,16 @@ class DumpExcel(object):
         except ValueError:
             en_col = header_values.index('English (Ingame)')
 
+        try:
+            filename_col = header_values.index('File')
+        except ValueError:
+            filename_col = None
+
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
+            if sheet_name:
+                if  row[filename_col].value != target:
+                    continue
             try:
                 offset = int(row[offset_col].value, 16)
             except TypeError:
