@@ -125,7 +125,7 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        print("Editing %s with diff %s" % (self, diff))
+        #print("Editing %s with diff %s" % (self, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
         #print(first, second)
@@ -199,6 +199,7 @@ class DumpExcel(object):
 
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
+            # TODO: This is too slow. Cache the last cursor state since it's in order?
             if sheet_name:
                 if  row[filename_col].value != target:
                     continue
