@@ -38,7 +38,7 @@ from romtools.patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = 'v0.19.1'
+VERSION = 'v0.19.2'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
@@ -477,7 +477,7 @@ if __name__ == '__main__':
     ] or (len([f for f in selected_images
                if f is not None]) < expected_image_length
           and len(selected_images) > 1 and not patch_plain_files):
-        print("Looking for %s disk images in this directory..." % cfg.info['game'])
+        #print("Looking for %s disk images in this directory..." % cfg.info['game'])
         abs_paths_in_dir = [pathjoin(exe_dir, f) for f in listdir(exe_dir)]
         logging.info("files in exe_dir: %s" % listdir(exe_dir))
         image_paths_in_dir = [f for f in abs_paths_in_dir if is_valid_disk_image(f)]
@@ -488,6 +488,7 @@ if __name__ == '__main__':
             logging.info("Looking for these files: %s" % cfg.hdd_filenames)
             if image['type'] == 'mixed' or image['type'] == 'hdd':
                 for d in disks_in_dir:
+                    #print("Looking through %s now for these files: %s" % (d, cfg.hdd_filenames))
                     if all([d.find_file(filename) for filename in cfg.hdd_filenames]):
                         selected_images = [d.filename]
                         hd_found = True
@@ -496,8 +497,10 @@ if __name__ == '__main__':
                 if not hd_found:
                     floppy_found = False
                     try:
+                        #print("No HD found, looking through %s now for %s." % (d, [f['name'] for f in image['floppy']['files']]))
                         floppy_filenames = [f['name'] for f in image['floppy']['files']]
                         for d in disks_in_dir:
+                            #print("Trying disk %s" % d)
                             if all([d.find_file(filename) for filename in floppy_filenames]):
                                 selected_images[image['id']] = d.filename
                                 floppy_found = True
