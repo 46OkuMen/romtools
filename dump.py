@@ -161,6 +161,10 @@ class DumpExcel(object):
         self.workbook = load_workbook(self.path)
         self.control_codes = control_codes
 
+        self.rows_with_file = {}
+        self._cache_rows_with_file()
+
+
     def get_translations(self, target, sheet_name=None, include_blank=False):
         """Get the translations for a file."""
         # Accepts a block, gamefile, or filename as "target".
@@ -197,9 +201,21 @@ class DumpExcel(object):
         except ValueError:
             filename_col = None
 
+        if sheet_name:
+            try:
+                start, stop = self.rows_with_file[target]
+                target_rows = list(worksheet.rows)[start:stop]
+            except KeyError:
+                target_rows = list(worksheet.rows)[1:]
 
-        for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
+        else:
+            target_rows = list(worksheet.rows)[1:]
+
+
+        for row in target_rows:  # Skip the first row, it's just labels
+
             # TODO: This is too slow. Cache the last cursor state since it's in order?
+            # Keep it in for the cases where it's not in rows-with-file above.
             if sheet_name:
                 if  row[filename_col].value != target:
                     continue
@@ -227,6 +243,7 @@ class DumpExcel(object):
                 except AttributeError:   # Int column values
                     english = str(row[en_col].value).encode('shift-jis')
 
+
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
             #    continue
@@ -237,6 +254,40 @@ class DumpExcel(object):
 
             trans.append(Translation(target, offset, japanese, english, control_codes=self.control_codes))
         return trans
+
+    def _cache_rows_with_file(self):
+        """
+            Store the location of the first and last value in each file. Makes things a bit faster.
+        """
+        for sheet_name in self.workbook.get_sheet_names():
+            worksheet = self.workbook.get_sheet_by_name(sheet_name)
+            first_row = list(worksheet.rows)[0]
+            header_values = [t.value for t in first_row]
+            try:
+                filename_col = header_values.index('File')
+            except ValueError:
+                continue
+            print(sheet_name)
+
+            current_filename = list(worksheet.rows)[1][filename_col].value
+            start = 1
+
+            for i, row in enumerate(list(worksheet.rows)):
+                filename = row[filename_col].value
+                if filename != current_filename:
+                    stop = i
+
+                    # TODO: Syntax wrong, fix it later
+                    #assert all([x[filename_col].value for x in list(worksheet.rows)[start:stop] == current_filename])
+
+                    self.rows_with_file[current_filename] = (start, stop)
+
+                    print(current_filename, start, stop)
+                    start = i+1
+                    current_filename = filename
+
+        return True
+
 
 
 class PointerExcel(object):
