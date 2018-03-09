@@ -9,12 +9,12 @@ import xlsxwriter
 
 COMPILER_MESSAGES = [b'Turbo', b'Borland', b'C++', b'Library', b'Copyright']
 
-ASCII_MODE = 0
+ASCII_MODE = 2
 # 0 = none
 # 1: punctuation and c format strings only (not implemented)
 # 2: All ascii
 
-THRESHOLD = 3
+THRESHOLD = 4
 
 
 def dump(files):
