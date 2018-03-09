@@ -18,7 +18,7 @@ from ndc import NDC, NDCPermissionError
 SUPPORTED_FILE_FORMATS = ['fdi', 'hdi', 'hdm', 'dip', 'flp', 'vmdk', 'dsk',
                           'vfd', 'vhd', 'hdd', 'img', 'd88', 'tfd', 'thd',
                           'nfd', 'nhd', 'h0', 'h1', 'h2', 'h3', 'h4', 'slh',
-                          'dcp', 'xdf', 'dup', 'fdd']
+                          'dcp', 'xdf', 'dup', 'fdd', 'slf']
 
 HARD_DISK_FORMATS = ['hdi', 'nhd', 'slh', 'vhd', 'hdd', 'thd']
 # HDI: anex86
@@ -153,6 +153,7 @@ class Disk:
 
     def find_file(self, target_file):
         results = self.ndc.find_all(self.filename, target_file)
+        #print(results)
         # remove filename
         result_hit_dirs = [r[0][:-1 * (len(target_file))]
                            for r in results]
