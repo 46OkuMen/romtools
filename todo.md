@@ -28,3 +28,11 @@
 
 * Windows XP + Vista support? Need to try building it on an XP system
 	* Pyinstaller does support XP.
+
+### CI
+* Windows builds
+	* Need to make builds on Windows 7 or earlier. Earliest offered by Appveyor is Windows Server 2012.
+* Mac builds
+	* Travis CI can't use Python on Mac.
+* Linux builds
+	* Could probably use Travis but haven't tried yet.
