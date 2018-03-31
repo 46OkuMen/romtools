@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['pachy98.py'],
-             pathex=['C:\\Users\\maxsi\\romtools'],
+             pathex=['/Users/maxsi/romtools'],
              binaries=[],
              datas=[('pachy.ico', '.'), ('schema.json', '.')],
              hiddenimports=[],
@@ -27,4 +27,4 @@ exe = EXE(pyz,
           upx=False,
           console=True,
           windowed=False,
-          icon='pachy.ico')
+          icon='pachy.hqx')

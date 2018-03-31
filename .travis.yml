@@ -1,0 +1,17 @@
+language: python
+python:
+  - "3.4"
+# command to install dependencies
+install:
+  - pip install pipenv
+  - pipenv install
+  - curl http://euee.web.fc2.com/tool/ndcm0a06b.tgz -o ndc.tgz
+  - mkdir -p bin
+  - 7z x ndc.tgz -obin
+  - del ndc.tgz
+  - brew install xdelta
+  - cp /usr/local/Cellar/xdelta/3.1.0/bin/xdelta3 bin/xdelta3
+  - pyinstaller pachy98-mac.spec
+# command to run tests
+script:
+  - py.test
