@@ -7,6 +7,8 @@ install:
   - pipenv install
   - curl http://euee.web.fc2.com/tool/ndcm0a06b.tgz -o ndc.tgz
   - mkdir -p bin
+  - brew update
+  - brew install p7zip
   - 7z x ndc.tgz -obin
   - del ndc.tgz
   - brew install xdelta
