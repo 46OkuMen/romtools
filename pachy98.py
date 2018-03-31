@@ -281,7 +281,10 @@ def check_for_update(local_version, remote_version_url):
         remote_version = (urlopen(remote_version_url)
                           .readline().decode('utf-8'))
 
-        if semver.compare(local_version[1:], remote_version) == -1:
+        local_version = local_version.lstrip('v')
+        remote_version = remote_version.lstrip('v')
+
+        if semver.compare(local_version, remote_version) == -1:
             print("There is a new update (%s) available!" % remote_version)
             print("Get it here: %s" % cfg.info['downloadurl'])
         else:
@@ -521,7 +524,7 @@ if __name__ == '__main__':
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
                         level=logging.INFO)
-   # sys.excepthook = except_handler
+    sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
