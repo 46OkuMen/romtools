@@ -5,6 +5,7 @@ Tools for tasks common to several of 46 OkuMen's romhacking projects.
 * disk.py - Wrapper for NDC for reading disk images, and extracting/inserting files.
 * patch.py - Wrapper for xdelta3 for generating and applying patches.
 * dump.py - Classes for dumps of text and pointers.
+* dumper.py - Roughly dumps uncompressed text from a disk into an Excel sheet.
 * lzss.py - Utilities for Rusty LZSS compression and decompression. Not yet adapted for other uses.
 * rominfo.py - Skeleton/boilerplate for new romhacking projects.
 
@@ -16,4 +17,8 @@ Tools for tasks common to several of 46 OkuMen's romhacking projects.
 * xdelta3.exe
 
 ## Building Pachy98
+### Windows
 ```pyinstaller pachy98.spec```
+
+### Mac
+```pyinstaller pachy98-mac.spec```

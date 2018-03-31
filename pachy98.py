@@ -26,7 +26,7 @@ from os.path import (
     split as pathsplit,
     join as pathjoin,
 )
-from romtools.disk import (
+from disk import (
     Disk,
     HARD_DISK_FORMATS,
     is_valid_disk_image,
@@ -34,7 +34,7 @@ from romtools.disk import (
     FileNotFoundError,
     FileFormatNotSupportedError,
 )
-from romtools.patch import Patch, PatchChecksumError
+from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
@@ -45,9 +45,9 @@ VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
 
 
 class Config:
-    SCHEMA = json.load(open('schema.json'))
 
     def __init__(self, json_path):
+        self.SCHEMA = json.load(open('schema.json'))
         with open(json_path, 'r', encoding='utf-8') as f:
             unicode_safe = f.read()
         self.json = json.loads(unicode_safe)
