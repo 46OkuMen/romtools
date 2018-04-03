@@ -5,12 +5,15 @@
 
 from tqdm import tqdm
 import sys
+import filecmp
 import logging
 import json
 import jsonschema
 import semver
 from os import (
     listdir,
+    mkdir,
+    walk,
     remove,
     getcwd,
     chdir,
@@ -19,7 +22,10 @@ from os import (
     stat,
     _exit,
 )
-from shutil import copyfile
+from shutil import (
+    copyfile,
+    rmtree
+)
 from os.path import (
     isfile,
     isdir,
@@ -151,6 +157,107 @@ class Config:
                     # field.  This is the case for the normal generic patch.
                     self.__validate_path(patch)
         return True
+
+
+def generate_config(disks):
+    # disks is a list of filenames: [o1, o2, p1, p2]. o is original, p is patched
+    #  Need an even number of disks.
+    if len(disks) % 2 != 0:
+        raise Exception()
+
+    original_disks = disks[:len(disks)//2]
+    patched_disks =  disks[len(disks)//2:]
+
+    #print(original_disks)
+    #print(patched_disks)
+
+    project_name = pathsplit(original_disks[0])[-1].split('.')[0]
+
+    config_filename = "Pachy98-" + project_name + ".json"
+
+    config = {}
+    config['info'] = {
+        'game': project_name,
+        'language': 'Ithkuil',
+        'version': 'v0.0.0',
+        'author': 'You',
+        'authorsite': 'http://romhacking.net'
+    }
+
+    config['images'] = []
+
+
+    for disk_index in range(len(disks)//2):
+        print(disk_index)
+
+        o = original_disks[disk_index]
+        disk = Disk(o)
+        original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
+        mkdir(original_folder)
+        # TODO: This doesn't detect hidden files, like in EVO.
+        files, dirs = disk.listdir('')
+        print(files, dirs)
+        for di in dirs:
+            disk.extract(di, dest_path=original_folder)
+        for f in files:
+            disk.extract(f, dest_path=original_folder)
+            print(f)
+
+        p = patched_disks[disk_index]
+        disk = Disk(p)
+        patched_folder = pathsplit(p)[-1].split('.')[0] + "-patched"
+        mkdir(patched_folder)
+        files, dirs = disk.listdir('')
+        for di in dirs:
+            disk.extract(di, dest_path=patched_folder)
+        for f in files:
+            disk.extract(f, dest_path=patched_folder)
+
+        patched_files = []
+
+        for root, dirs, files in walk(original_folder):
+            patched_root = root.replace(original_folder, patched_folder)
+            for f in files:
+                original_file = pathjoin(root, f)
+                patched_file = pathjoin(patched_root, f)
+                if not filecmp.cmp(original_file, patched_file):
+                    print(original_file, "is different from", patched_file)
+                    patched_files.append(f)
+                    patch_filename = f + '.xdelta'
+                    if not isdir('patch'):
+                        mkdir('patch')
+                    patch_destination = pathjoin('patch', patch_filename)
+                    filepatch = Patch(original_file, patch_destination, edited=patched_file)
+                    filepatch.create()
+
+        if disk.extension in HARD_DISK_FORMATS:
+            disk_type = 'hdd'
+        else:
+            disk_type = 'floppy'
+
+        file_field = []
+        for f in patched_files:
+            file_field.append({
+                    'name': f,
+                    'patch': f + '.xdelta'
+                })
+
+        config['images'].append({
+                'name': 'Disk %s' % disk_index,
+                'id': disk_index,
+                'type': disk_type,
+            })
+
+        config['images'][disk_index][disk_type] = {
+            'files': file_field
+        }
+
+        # Cleanup
+        rmtree(original_folder)
+        rmtree(patched_folder)
+
+    with open(config_filename, 'w') as f:
+        json.dump(config, f, indent=2)
 
 
 def input_catch_keyboard_interrupt(prompt):
@@ -392,6 +499,13 @@ def patch_images(selected_images, cfg):
 
 
 if __name__ == '__main__':
+
+    # Check args for a json-generating command
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "-generate":
+            generate_config(sys.argv[2:])
+            exit_quietly()
+
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
@@ -401,9 +515,10 @@ if __name__ == '__main__':
     bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
-    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
-                        level=logging.INFO)
-    sys.excepthook = except_handler
+    # TODO: Disabling
+    #logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
+    #                    level=logging.INFO)
+    #sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)

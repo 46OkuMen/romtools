@@ -121,7 +121,11 @@ class Disk:
     def listdir(self, subdir=''):
         """ Display all the filenames and subdirs in a given disk and subdir.
         """
-        subdir = subdir.decode()
+
+        try:
+            subdir = subdir.decode()
+        except AttributeError:
+            pass
         subdir = subdir.rstrip('\\')
         cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
         if subdir:
@@ -177,8 +181,9 @@ class Disk:
         self._file_dir_cache[tuple(target_filenames)] = None
         return None
 
-    def extract(self, filename, path_in_disk=None, dest_path=None, lzss=False):
+    def extract(self, filename, path_in_disk='', dest_path=None, lzss=False):
         # TODO: Add lzss decompress support.
+
         image_path = path.join(path_in_disk, filename)
         self.ndc.get(self.filename, image_path, dest_path or self.dir)
 
