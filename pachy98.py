@@ -44,7 +44,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = 'v0.19.2'
+VERSION = 'v0.20.0'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
@@ -100,26 +100,29 @@ class Config:
 
         self.patch_dir = pathjoin(pathsplit(json_path)[0], 'patch')
 
-        # TODO: What other stuff do I need easier access to?
-        if not self._validate_config():
+        # Validate with jsonschema.
+        try:
+            jsonschema.validate(self.json, self.SCHEMA)
+        except jsonschema.ValidationError as e:
+            message_wait_close("The config file %s is invalid: %s." % (json_path, e.message))
+
+        if not self._validate_options():
             # TODO: Need a more specific message of what is wrong with it.
             message_wait_close("A config option in %s is not supported by "
                                "this verison of Pachy98. Download a newer "
-                               "version." % selected_config)
+                               "version." % json_path)
         try:
             self.__validate_patch_existence()
         except FileNotFoundError as e:
             message_wait_close("This config references a patch %s that doesn't exist." % e)
 
-    def _validate_config(self):
-        try:
-            jsonschema.validate(self.json, self.SCHEMA)
-        except jsonschema.ValidationError:
-            return False
+    def _validate_options(self):
+        #try:
+        #    jsonschema.validate(self.json, self.SCHEMA)
+        #except jsonschema.ValidationError:
+        #    print(jsonschema.ValidationError.message)
+        #    return False
 
-        # TODO: More extensive validation.
-        # Make sure all patches exist in the patch directory
-        # Make sure booleaan id's match those defined by the user
         for o in self.options:
             if (o['type'] == 'silent' and o['id'] not in
                     VALID_SILENT_OPTION_IDS):
@@ -162,8 +165,12 @@ class Config:
 def generate_config(disks):
     # disks is a list of filenames: [o1, o2, p1, p2]. o is original, p is patched
     #  Need an even number of disks.
-    if len(disks) % 2 != 0:
-        raise Exception()
+    if len(disks) % 2 != 0 or len(disks) < 2:
+        message_wait_close("Usage: pachy98.exe -generate disk1-orig.fdi disk2-orig.fdi disk1-patched.fdi disk2-patched.fdi")
+
+    for d in disks:
+        if not isfile(d):
+            message_wait_close("%s does not exist." % d)
 
     original_disks = disks[:len(disks)//2]
     patched_disks =  disks[len(disks)//2:]
@@ -188,20 +195,15 @@ def generate_config(disks):
 
 
     for disk_index in range(len(disks)//2):
-        print(disk_index)
-
         o = original_disks[disk_index]
         disk = Disk(o)
         original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
         mkdir(original_folder)
-        # TODO: This doesn't detect hidden files, like in EVO.
         files, dirs = disk.listdir('')
-        print(files, dirs)
         for di in dirs:
             disk.extract(di, dest_path=original_folder)
         for f in files:
             disk.extract(f, dest_path=original_folder)
-            print(f)
 
         p = patched_disks[disk_index]
         disk = Disk(p)
@@ -220,8 +222,8 @@ def generate_config(disks):
             for f in files:
                 original_file = pathjoin(root, f)
                 patched_file = pathjoin(patched_root, f)
-                if not filecmp.cmp(original_file, patched_file):
-                    print(original_file, "is different from", patched_file)
+                if not filecmp.cmp(original_file, patched_file, shallow=False):
+                    #print(original_file, "is different from", patched_file)
                     patched_files.append(f)
                     patch_filename = f + '.xdelta'
                     if not isdir('patch'):
@@ -504,7 +506,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         if sys.argv[1] == "-generate":
             generate_config(sys.argv[2:])
-            exit_quietly()
+            message_wait_close("")
 
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
@@ -515,10 +517,9 @@ if __name__ == '__main__':
     bin_dir = pathjoin(exe_dir, 'bin')
 
     # Setup log
-    # TODO: Disabling
-    #logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
-    #                    level=logging.INFO)
-    #sys.excepthook = except_handler
+    logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
+                        level=logging.INFO)
+   # sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
