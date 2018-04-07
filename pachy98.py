@@ -168,6 +168,7 @@ def generate_config(disks):
     if len(disks) % 2 != 0 or len(disks) < 2:
         message_wait_close("Usage: pachy98.exe -generate disk1-orig.fdi disk2-orig.fdi disk1-patched.fdi disk2-patched.fdi")
 
+    disks = [pathjoin(exe_dir, d) for d in disks]
     for d in disks:
         if not isfile(d):
             message_wait_close("%s does not exist." % d)
@@ -196,7 +197,7 @@ def generate_config(disks):
 
     for disk_index in range(len(disks)//2):
         o = original_disks[disk_index]
-        disk = Disk(o)
+        disk = Disk(o, ndc_dir=bin_dir)
         original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
         mkdir(original_folder)
         files, dirs = disk.listdir('')
@@ -206,7 +207,7 @@ def generate_config(disks):
             disk.extract(f, dest_path=original_folder)
 
         p = patched_disks[disk_index]
-        disk = Disk(p)
+        disk = Disk(p, ndc_dir=bin_dir)
         patched_folder = pathsplit(p)[-1].split('.')[0] + "-patched"
         mkdir(patched_folder)
         files, dirs = disk.listdir('')
@@ -229,7 +230,7 @@ def generate_config(disks):
                     if not isdir('patch'):
                         mkdir('patch')
                     patch_destination = pathjoin('patch', patch_filename)
-                    filepatch = Patch(original_file, patch_destination, edited=patched_file)
+                    filepatch = Patch(original_file, patch_destination, edited=patched_file, xdelta_dir=bin_dir)
                     filepatch.create()
 
         if disk.extension in HARD_DISK_FORMATS:
@@ -502,11 +503,6 @@ def patch_images(selected_images, cfg):
 
 if __name__ == '__main__':
 
-    # Check args for a json-generating command
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "-generate":
-            generate_config(sys.argv[2:])
-            message_wait_close("")
 
     # Set the current directory to the magical pyinstaller folder if necessary.
     exe_dir = getcwd()
@@ -515,6 +511,12 @@ if __name__ == '__main__':
         # All the stuff in the exe's dir should be prepended with this so it can be found.
         exe_dir = pathsplit(sys.executable)[0]
     bin_dir = pathjoin(exe_dir, 'bin')
+
+    # Check args for a json-generating command
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "-generate":
+            generate_config(sys.argv[2:])
+            message_wait_close("")
 
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
