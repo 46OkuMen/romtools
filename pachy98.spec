@@ -28,3 +28,15 @@ exe = EXE(pyz,
           console=True,
           windowed=False,
           icon='pachy.ico')
+
+############################################
+# Code-sign the generated executable
+import subprocess
+from pachy98 import MS_VERSION
+subprocess.call(["./verpatch", "pachy98.exe", "/va", MS_VERSION])
+subprocess.call(["./verpatch", "pachy98.exe", "/s", "ProductVersion", MS_VERSION])
+subprocess.call(["./verpatch", "pachy98.exe", "/s", "description", "Pachy98"])
+subprocess.call(["./verpatch", "pachy98.exe", "/s", "CompanyName", "46 OkuMen"])
+subprocess.call(["./verpatch", "pachy98.exe", "/s", "ProductName", "Pachy98"])
+subprocess.call(["./verpatch", "pachy98.exe", "/s", "LegalCopyright", "Copyright (c) 2018"])
+subprocess.call(["./signtool", "sign", "/a", "/t", "http://timestamp.comodoca.com", "pachy98.exe"])
