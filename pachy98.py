@@ -32,6 +32,7 @@ from os.path import (
     split as pathsplit,
     join as pathjoin,
 )
+from collections import OrderedDict
 from disk import (
     Disk,
     HARD_DISK_FORMATS,
@@ -44,7 +45,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = 'v0.20.0'
+VERSION = 'v0.20.1'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
@@ -183,19 +184,22 @@ def generate_config(disks):
 
     config_filename = "Pachy98-" + project_name + ".json"
 
-    config = {}
-    config['info'] = {
-        'game': project_name,
-        'language': 'Ithkuil',
-        'version': 'v0.0.0',
-        'author': 'You',
-        'authorsite': 'http://romhacking.net'
-    }
+    info_dict = OrderedDict([
+        ('game', project_name),
+        ('language', 'English'),
+        ('version', 'v0.0.0'),
+        ('author', 'You'),
+        ('authorsite', 'http://romhacking.net')
+    ])
 
-    config['images'] = []
+    config = OrderedDict([
+            ('info', info_dict),
+            ('images', []),
+        ])
 
 
     for disk_index in range(len(disks)//2):
+        print("Extracting files from %s..." % original_disks[disk_index])
         o = original_disks[disk_index]
         disk = Disk(o, ndc_dir=bin_dir)
         original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
@@ -206,6 +210,7 @@ def generate_config(disks):
         for f in files:
             disk.extract(f, dest_path=original_folder)
 
+        print("Extracting files from %s..." % patched_disks[disk_index])
         p = patched_disks[disk_index]
         disk = Disk(p, ndc_dir=bin_dir)
         patched_folder = pathsplit(p)[-1].split('.')[0] + "-patched"
@@ -218,6 +223,7 @@ def generate_config(disks):
 
         patched_files = []
 
+        print("Comparing files in %s and %s..." % (original_disks[disk_index], patched_disks[disk_index]))
         for root, dirs, files in walk(original_folder):
             patched_root = root.replace(original_folder, patched_folder)
             for f in files:
@@ -240,27 +246,31 @@ def generate_config(disks):
 
         file_field = []
         for f in patched_files:
-            file_field.append({
-                    'name': f,
-                    'patch': f + '.xdelta'
-                })
+            file_field.append(OrderedDict([
+                    ('name', f),
+                    ('patch', f + '.xdelta')
+                ]))
 
-        config['images'].append({
-                'name': 'Disk %s' % disk_index,
-                'id': disk_index,
-                'type': disk_type,
-            })
+        config['images'].append(OrderedDict([
+                ('name', 'Disk %s' % disk_index),
+                ('id', disk_index),
+                ('type', disk_type),
+            ]))
 
-        config['images'][disk_index][disk_type] = {
-            'files': file_field
-        }
+        config['images'][disk_index][disk_type] = OrderedDict([
+            ('files', file_field)
+        ])
 
         # Cleanup
+        print("Cleaning up...");
         rmtree(original_folder)
         rmtree(patched_folder)
 
+    print("Generating config %s..." % config_filename)
     with open(config_filename, 'w') as f:
         json.dump(config, f, indent=2)
+
+    print("All done.")
 
 
 def input_catch_keyboard_interrupt(prompt):
