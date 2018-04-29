@@ -46,6 +46,7 @@ from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
 VERSION = 'v0.20.1'
+MS_VERSION = VERSION.lstrip('v') + '.0'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
 VALID_IMAGE_TYPES = ['floppy', 'hdd', 'mixed']
