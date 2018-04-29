@@ -3,6 +3,10 @@ import xlsxwriter
 from collections import OrderedDict
 from openpyxl import load_workbook
 
+SPECIAL_CHARACTERS = {
+    'ō': '[o]',
+    'ū': '[u]',
+}
 
 def unpack(s, t=None):
     if t is None:
@@ -63,8 +67,9 @@ def sjis_to_hex_string(jp, control_codes={}):
 
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
-    def __init__(self, gamefile, location, japanese, english, control_codes={}):
+    def __init__(self, gamefile, location, japanese, english, category=None, portrait=None, cd_location=None, control_codes={}):
         self.location = location
+        self.cd_location = cd_location
         self.gamefile = gamefile
         self.japanese = japanese
         self.english = english
@@ -72,11 +77,15 @@ class Translation(object):
         self.jp_bytestring = japanese
         self.en_bytestring = english
 
+        self.category = category
+        self.portrait = portrait
+
         for cc in control_codes:
             if cc in self.jp_bytestring:
                 self.jp_bytestring = self.jp_bytestring.replace(cc, control_codes[cc])
             if cc in self.en_bytestring:
                 self.en_bytestring = self.en_bytestring.replace(cc, control_codes[cc])
+
 
     def refresh_jp_bytestring(self):
         self.jp_bytestring = sjis_to_hex_string(self.japanese)
@@ -161,11 +170,12 @@ class DumpExcel(object):
         self.workbook = load_workbook(self.path)
         self.control_codes = control_codes
 
-        self.rows_with_file = {}
-        self._cache_rows_with_file()
+        #self.rows_with_file = {}
+        #print("About to cache rows with file")
+        #self._cache_rows_with_file()
 
 
-    def get_translations(self, target, sheet_name=None, include_blank=False):
+    def get_translations(self, target, sheet_name=None, include_blank=False, use_cd_location=False):
         """Get the translations for a file."""
         # Accepts a block, gamefile, or filename as "target".
         # If sheet_name is defined, the target will be the filenamne within that multi-file sheet.
@@ -187,45 +197,68 @@ class DumpExcel(object):
         first_row = list(worksheet.rows)[0]
         header_values = [t.value for t in first_row]
 
-        offset_col = header_values.index('Offset')
+        try:
+            offset_col = header_values.index('Offset (FD)')
+            cd_offset_col = header_values.index('Offset (CD)')
+        except ValueError:
+            offset_col = header_values.index('Offset')
+            cd_offset_col = None
+
         jp_col = header_values.index('Japanese')
 
-        # Appareden (and later games) have two English columns
+        # Appareden (and later games) have two (three?) English columns
         try:
-            en_col = header_values.index('English')
+            en_col = header_values.index('English (Typeset)')
         except ValueError:
-            en_col = header_values.index('English (Ingame)')
+            try:
+                en_col = header_values.index('English (Ingame)')
+            except ValueError:
+                en_col = header_values.index('English')
 
         try:
             filename_col = header_values.index('File')
         except ValueError:
             filename_col = None
 
-        if sheet_name:
-            try:
-                start, stop = self.rows_with_file[target]
-                target_rows = list(worksheet.rows)[start:stop]
-            except KeyError:
-                target_rows = list(worksheet.rows)[1:]
+        # TODO: These more ad-hoc columns might do better in a dictionary or something.
 
-        else:
-            target_rows = list(worksheet.rows)[1:]
+        try:
+            category_col = header_values.index('Category')
+        except ValueError:
+            category_col = None
+
+        try:
+            portrait_col = header_values.index('Portrait')
+        except ValueError:
+            portrait_col = None
 
 
-        for row in target_rows:  # Skip the first row, it's just labels
+        for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
 
-            # TODO: This is too slow. Cache the last cursor state since it's in order?
-            # Keep it in for the cases where it's not in rows-with-file above.
-            if sheet_name:
-                if  row[filename_col].value != target:
-                    continue
+            # Skip rows that aren't for this file, if a sheet name is specified
+            if sheet_name and row[filename_col].value != target:
+                continue
+
             try:
                 offset = int(row[offset_col].value, 16)
             except TypeError:
                 # Either a blank line or a total value. Ignore it.
+                offset = None
+
+            try:
+                cd_offset = int(row[cd_offset_col].value, 16)
+            except TypeError:
+                cd_offset = None
+
+            if offset is None and cd_offset is None:
                 break
+
             try:
                 start, stop = target.start, target.stop
+                if use_cd_location:
+                    offset = cd_offset
+                if offset is None:
+                    continue
                 if not (target.start <= offset < target.stop):
                     continue
             except AttributeError:
@@ -235,6 +268,7 @@ class DumpExcel(object):
                 continue
 
             japanese = row[jp_col].value.encode('shift-jis')
+            #print(row[en_col].value)
             if row[en_col].value is None:
                 english = b""
             else:
@@ -242,6 +276,22 @@ class DumpExcel(object):
                     english = row[en_col].value.encode('shift-jis')
                 except AttributeError:   # Int column values
                     english = str(row[en_col].value).encode('shift-jis')
+                except UnicodeEncodeError:
+
+                    english = row[en_col].value
+                    for ch in SPECIAL_CHARACTERS:
+                        english = english.replace(ch, SPECIAL_CHARACTERS[ch])
+                    english = english.encode('shift-jis')
+
+            if category_col is not None:
+                category = row[category_col].value
+            else:
+                category = None
+
+            if portrait_col is not None:
+                portrait = row[portrait_col].value
+            else:
+                portrait = None
 
 
             # if isinstance(japanese, long):
@@ -252,42 +302,8 @@ class DumpExcel(object):
             if not english:
                 english = b""
 
-            trans.append(Translation(target, offset, japanese, english, control_codes=self.control_codes))
+            trans.append(Translation(target, offset, japanese, english, category=category, portrait=portrait, control_codes=self.control_codes, cd_location=cd_offset))
         return trans
-
-    def _cache_rows_with_file(self):
-        """
-            Store the location of the first and last value in each file. Makes things a bit faster.
-        """
-        for sheet_name in self.workbook.get_sheet_names():
-            worksheet = self.workbook.get_sheet_by_name(sheet_name)
-            first_row = list(worksheet.rows)[0]
-            header_values = [t.value for t in first_row]
-            try:
-                filename_col = header_values.index('File')
-            except ValueError:
-                continue
-            print(sheet_name)
-
-            current_filename = list(worksheet.rows)[1][filename_col].value
-            start = 1
-
-            for i, row in enumerate(list(worksheet.rows)):
-                filename = row[filename_col].value
-                if filename != current_filename:
-                    stop = i
-
-                    # TODO: Syntax wrong, fix it later
-                    #assert all([x[filename_col].value for x in list(worksheet.rows)[start:stop] == current_filename])
-
-                    self.rows_with_file[current_filename] = (start, stop)
-
-                    print(current_filename, start, stop)
-                    start = i+1
-                    current_filename = filename
-
-        return True
-
 
 
 class PointerExcel(object):
@@ -296,7 +312,7 @@ class PointerExcel(object):
         try:
             self.workbook = load_workbook(self.path)
         except IOError:
-            self.workbook = xlsxwriter.Workbook(self.path)         
+            self.workbook = xlsxwriter.Workbook(self.path)
 
     def add_worksheet(self, title):
         self.worksheet = self.workbook.add_worksheet(title)
@@ -315,16 +331,14 @@ class PointerExcel(object):
         self.worksheet.set_column('D:D', 30)
         return self.worksheet
 
-    def get_pointers(self, gamefile):
+    def get_pointers(self, gamefile, pointer_sheet_name):
         pointers = OrderedDict()
         try:
-            ws = self.workbook[gamefile.filename]
+            ws = self.workbook[pointer_sheet_name]
         except KeyError:
-            try:
-                ws = self.workbook[gamefile.filename.lstrip('decompressed_')]
-            except KeyError:
-                # Not in the worksheet; return an emtpty OrderedDict
-                return pointers
+            # Sheet does not exist. Return an empty pointers list.
+            return pointers
+
         for i, row in enumerate(ws):
             if i == 0:
                 continue
@@ -373,7 +387,6 @@ def update_google_sheets(local_filename, google_filename):
 
         google_values = google_worksheet.get_all_values(returnas='cell', include_empty=False)
 
-        print(name)
 
         #print(google_values)
 
