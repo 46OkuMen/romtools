@@ -1,11 +1,12 @@
-import pygsheets
 import xlsxwriter
 from collections import OrderedDict
 from openpyxl import load_workbook
 
 SPECIAL_CHARACTERS = {
     'ō': '[o]',
+    'Ō': '[O]',
     'ū': '[u]',
+    '\uff0d': '\u30fc'   # Katakana long dash mark fix
 }
 
 def unpack(s, t=None):
@@ -134,7 +135,7 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        #print("Editing %s with diff %s" % (self, diff))
+        print("Editing %s with diff %s" % (self, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
         #print(first, second)
@@ -186,11 +187,11 @@ class DumpExcel(object):
         else:
             try:
                 worksheet = self.workbook.get_sheet_by_name(target.gamefile.filename)
+            except KeyError:
+                worksheet = self.workbook.get_sheet_by_name(target.gamefile.filename.lstrip('decompressed_').rstrip('.decompressed'))
             except AttributeError:
                 try:
                     worksheet = self.workbook.get_sheet_by_name(target.filename)
-                except KeyError:
-                    worksheet = self.workbook.get_sheet_by_name(target.filename.lstrip('decompressed_'))
                 except AttributeError:
                     worksheet = self.workbook.get_sheet_by_name(target)
 
@@ -266,8 +267,9 @@ class DumpExcel(object):
 
             if row[en_col].value is None and not include_blank:
                 continue
-
+            #print(sheet_name)
             japanese = row[jp_col].value.encode('shift-jis')
+            #print(japanese)
             #print(row[en_col].value)
             if row[en_col].value is None:
                 english = b""
@@ -357,11 +359,11 @@ class PointerExcel(object):
 
     def close(self):
         self.workbook.close()
-
+"""
 class DumpGoogleSheet(object):
-    """
-        A dump in a Google Sheet, with methods to update various columns
-    """
+"""
+       # A dump in a Google Sheet, with methods to update various columns
+"""
     def __init__(self, filename):
         gc = pygsheets.authorize(outh_file='client_secret_1010652634407-2d4gjkn44a5020jg6tl4hqjld1130fjs.apps.googleusercontent.com.json', no_cache=True)
         self.workbook = gc.open(filename)
@@ -438,3 +440,4 @@ def update_google_sheets(local_filename, google_filename):
                         cell.value = google_val
 
     local.workbook.save(local_filename)
+"""
