@@ -196,7 +196,7 @@ class Disk:
 
     def insert(self,
                filepath,
-               path_in_disk=None,
+               path_in_disk='',     # used to be None
                delete_original=True,
                delete_necessary=True):
         # First, delete the original file in the disk if applicable.
@@ -232,11 +232,14 @@ class Disk:
 
 
 class Gamefile(object):
-    def __init__(self, path, disk=None, dest_disk=None, pointer_constant=0):
+    def __init__(self, path, disk=None, dest_disk=None, pointer_constant=0, pointer_sheet_name=None):
         self.path = path
         self.filename = path.split('\\')[-1]
         self.disk = disk
         self.dest_disk = dest_disk
+
+        if pointer_sheet_name is None:
+            pointer_sheet_name = self.filename
 
         with open(path, 'rb') as f:
             self.original_filestring = f.read()
@@ -250,7 +253,7 @@ class Gamefile(object):
 
         if self.disk:
             if self.disk.pointer_excel:
-                self.pointers = self.disk.pointer_excel.get_pointers(self)
+                self.pointers = self.disk.pointer_excel.get_pointers(self, pointer_sheet_name)
         else:
             self.pointers = None
 
@@ -270,8 +273,11 @@ class Gamefile(object):
         if not skip_disk:
             print("inserting:", dest_path)
             self.dest_disk.insert(dest_path, path_in_disk=path_in_disk)
+        return dest_path
 
     def incorporate(self, block):
+        i = self.filestring.index(block.original_blockstring)
+        #print("Original blockstring found at", i)
         self.filestring = self.filestring.replace(block.original_blockstring,
                                                   block.blockstring)
 

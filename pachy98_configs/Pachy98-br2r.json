@@ -1,0 +1,305 @@
+{
+  "info": {
+    "game": "Brandish 2 Renewal",
+    "language": "English",
+    "version": "v1.0.0",
+    "author": "Heroes of Legend",
+    "authorsite": "https://gu4n.github.io/br2/"
+  },
+  "images": [
+    {
+      "id": 0,
+      "name": "Brandish 2 Renewal (FD version)",
+      "type": "mixed",
+      "floppy": {
+       "files": [
+          {
+            "name": "BR2.EXE",
+            "patch": "BR2.EXE.xdelta"
+          },
+          {
+            "name": "BR2DAT1.KHD",
+            "patch": "BR2DAT1.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT1.KLB",
+            "patch": "BR2DAT1.KLB.xdelta"
+          },
+          {
+            "name": "BR2SDT1.KHD",
+            "patch": "BR2SDT1.KHD.xdelta"
+          },
+          {
+            "name": "BR2SDT1.KLB",
+            "patch": "BR2SDT1.KLB.xdelta"
+          },
+          {
+            "name": "BR_MAIN.KHD",
+            "patch": "BR_MAIN.KHD.xdelta"
+          },
+          {
+            "name": "BR_MAIN.KLB",
+            "patch": "BR_MAIN.KLB.xdelta"
+          },
+		  {
+            "name": "DISK_0.BR2"
+          }
+        ]
+      },
+      "hdd": {
+        "files": [{
+						"name": "BR2.EXE",
+						"patch": {
+							"type": "failsafelist",
+							"list": [
+								"BR2.EXE.xdelta"
+							]
+						}
+					},
+					{
+						"name": "BR2DAT1.KHD",
+						"patch": "BR2DAT1.KHD.xdelta"
+					},
+					{
+						"name": "BR2DAT1.KLB",
+						"patch": "BR2DAT1.KLB.xdelta"
+					},
+					{
+						"name": "BR2DAT2.KHD",
+						"patch": "BR2DAT2.KHD.xdelta"
+					},
+					{
+						"name": "BR2DAT2.KLB",
+						"patch": "BR2DAT2.KLB.xdelta"
+					},
+					{
+						"name": "BR2DAT3.KHD",
+						"patch": "BR2DAT3.KHD.xdelta"
+					},
+					{
+						"name": "BR2DAT3.KLB",
+						"patch": "BR2DAT3.KLB.xdelta"
+					},
+					{
+						"name": "BR2DAT4.KHD",
+						"patch": "BR2DAT4.KHD.xdelta"
+					},
+					{
+						"name": "BR2DAT4.KLB",
+						"patch": "BR2DAT4.KLB.xdelta"
+					},
+					{
+						"name": "BR2DAT5.KHD",
+						"patch": "BR2DAT5.KHD.xdelta"
+					},
+					{
+						"name": "BR2DAT5.KLB",
+						"patch": "BR2DAT5.KLB.xdelta"
+					},
+					{
+						"name": "BR2PRG2.KHD",
+						"patch": "BR2PRG2.KHD.xdelta"
+					},
+					{
+						"name": "BR2PRG2.KLB",
+						"patch": "BR2PRG2.KLB.xdelta"
+					},
+					{
+						"name": "BR2PRG3.KHD",
+						"patch": "BR2PRG3.KHD.xdelta"
+					},
+					{
+						"name": "BR2PRG3.KLB",
+						"patch": "BR2PRG3.KLB.xdelta"
+					},
+					{
+						"name": "BR2PRG4.KHD",
+						"patch": "BR2PRG4.KHD.xdelta"
+					},
+					{
+						"name": "BR2PRG4.KLB",
+						"patch": "BR2PRG4.KLB.xdelta"
+					},
+					{
+						"name": "BR2PRG5.KHD",
+						"patch": "BR2PRG5.KHD.xdelta"
+					},
+					{
+						"name": "BR2PRG5.KLB",
+						"patch": "BR2PRG5.KLB.xdelta"
+					},
+					{
+						"name": "BR2SDT1.KHD",
+						"patch": "BR2SDT1.KHD.xdelta"
+					},
+					{
+						"name": "BR2SDT1.KLB",
+						"patch": {
+							"type": "failsafelist",
+							"list": [
+								"BR2SDT1.KLB.xdelta"
+							]
+						}
+					},
+
+					{
+						"name": "BR_MAIN.KHD",
+						"patch": "BR_MAIN.KHD.xdelta"
+					},
+					{
+						"name": "BR_MAIN.KLB",
+						"patch": "BR_MAIN.KLB.xdelta"
+					}
+				],
+        "path_keywords":[
+          "BR2_98"
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "name": "Brandish 2 Renewal Disk 1",
+      "type": "floppy",
+      "floppy": {
+        "files": [
+          {
+            "name": "BR2.EXE",
+            "patch": "BR2.EXE.xdelta"
+          },
+          {
+            "name": "BR2DAT1.KHD",
+            "patch": "BR2DAT1.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT1.KLB",
+            "patch": "BR2DAT1.KLB.xdelta"
+          },
+          {
+            "name": "BR2SDT1.KHD",
+            "patch": "BR2SDT1.KHD.xdelta"
+          },
+          {
+            "name": "BR2SDT1.KLB",
+            "patch": "BR2SDT1.KLB.xdelta"
+          },
+          {
+            "name": "BR_MAIN.KHD",
+            "patch": "BR_MAIN.KHD.xdelta"
+          },
+          {
+            "name": "BR_MAIN.KLB",
+            "patch": "BR_MAIN.KLB.xdelta"
+          },
+		  {
+            "name": "DISK_1.BR2"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "name": "Brandish 2 Renewal Disk 2",
+      "type": "floppy",
+      "floppy": {
+        "files": [
+          {
+            "name": "BR2DAT2.KHD",
+            "patch": "BR2DAT2.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT2.KLB",
+            "patch": "BR2DAT2.KLB.xdelta"
+          },
+          {
+            "name": "BR2PRG2.KHD",
+            "patch": "BR2PRG2.KHD.xdelta"
+          },
+          {
+            "name": "BR2PRG2.KLB",
+            "patch": "BR2PRG2.KLB.xdelta"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "Brandish 2 Renewal Disk 3",
+      "type": "floppy",
+      "floppy": {
+        "files": [
+          {
+            "name": "BR2DAT3.KHD",
+            "patch": "BR2DAT3.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT3.KLB",
+            "patch": "BR2DAT3.KLB.xdelta"
+          },
+          {
+            "name": "BR2PRG3.KHD",
+            "patch": "BR2PRG3.KHD.xdelta"
+          },
+          {
+            "name": "BR2PRG3.KLB",
+            "patch": "BR2PRG3.KLB.xdelta"
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "Brandish 2 Renewal Disk 4",
+      "type": "floppy",
+      "floppy": {
+        "files": [
+          {
+            "name": "BR2DAT4.KHD",
+            "patch": "BR2DAT4.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT4.KLB",
+            "patch": "BR2DAT4.KLB.xdelta"
+          },
+          {
+            "name": "BR2PRG4.KHD",
+            "patch": "BR2PRG4.KHD.xdelta"
+          },
+          {
+            "name": "BR2PRG4.KLB",
+            "patch": "BR2PRG4.KLB.xdelta"
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "name": "Brandish 2 Renewal Disk 5",
+      "type": "floppy",
+      "floppy": {
+        "files": [
+          {
+            "name": "BR2DAT5.KHD",
+            "patch": "BR2DAT5.KHD.xdelta"
+          },
+          {
+            "name": "BR2DAT5.KLB",
+            "patch": "BR2DAT5.KLB.xdelta"
+          },
+          {
+            "name": "BR2PRG5.KHD",
+            "patch": "BR2PRG5.KHD.xdelta"
+          },
+          {
+            "name": "BR2PRG5.KLB",
+            "patch": "BR2PRG5.KLB.xdelta"
+          }
+        ]
+      }
+    }
+  ],
+  "options":[
+  
+    {
+    }
+]
+  }

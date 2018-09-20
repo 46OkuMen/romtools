@@ -9,7 +9,7 @@ import xlsxwriter
 
 COMPILER_MESSAGES = [b'Turbo', b'Borland', b'C++', b'Library', b'Copyright']
 
-ASCII_MODE = 2
+ASCII_MODE = 0
 # 0 = none
 # 1: punctuation and c format strings only (not implemented)
 # 2: All ascii
@@ -49,7 +49,7 @@ def dump(files):
             while cursor < len(contents):
 
                 # First byte of SJIS text. Read the next one, too
-                if 0x80 <= contents[cursor] <= 0x9f or 0xe0 <= contents[cursor] <= 0xef:
+                if (0x80 <= contents[cursor] <= 0x9f or 0xe0 <= contents[cursor] <= 0xef) and cursor+1 < len(contents):
                     #print(bytes(contents[cursor]))
                     sjis_buffer += contents[cursor].to_bytes(1, byteorder='little')
                     cursor += 1
