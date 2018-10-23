@@ -6,7 +6,8 @@ SPECIAL_CHARACTERS = {
     'ō': '[o]',
     'Ō': '[O]',
     'ū': '[u]',
-    '\uff0d': '\u30fc'   # Katakana long dash mark fix
+    '\uff0d': '\u30fc',   # Katakana long dash mark fix
+    #'\u2161': '\x87\x55', # II Ⅱ fix
 }
 
 def unpack(s, t=None):
@@ -68,7 +69,8 @@ def sjis_to_hex_string(jp, control_codes={}):
 
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
-    def __init__(self, gamefile, location, japanese, english, category=None, portrait=None, cd_location=None, control_codes={}):
+    def __init__(self, gamefile, location, japanese, english, category=None, portrait=None, 
+                 suffix=None, cd_location=None, control_codes={}):
         self.location = location
         self.cd_location = cd_location
         self.gamefile = gamefile
@@ -80,6 +82,7 @@ class Translation(object):
 
         self.category = category
         self.portrait = portrait
+        self.suffix = suffix
 
         for cc in control_codes:
             if cc in self.jp_bytestring:
@@ -233,6 +236,11 @@ class DumpExcel(object):
         except ValueError:
             portrait_col = None
 
+        try:
+            suffix_col = header_values.index("Suffix")
+        except ValueError:
+            suffix_col = None
+
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
 
@@ -268,6 +276,9 @@ class DumpExcel(object):
             if row[en_col].value is None and not include_blank:
                 continue
             #print(sheet_name)
+            #for sc in SPECIAL_CHARACTERS:
+            #    japanese = japanese.replace(sc, SPECIAL_CHARACTERS[sc])
+            #japanese = japanese.encode('shift-jis')
             japanese = row[jp_col].value.encode('shift-jis')
             #print(japanese)
             #print(row[en_col].value)
@@ -295,6 +306,11 @@ class DumpExcel(object):
             else:
                 portrait = None
 
+            if suffix_col is not None:
+                suffix = row[suffix_col].value
+            else:
+                suffix = None
+
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
@@ -304,7 +320,11 @@ class DumpExcel(object):
             if not english:
                 english = b""
 
-            trans.append(Translation(target, offset, japanese, english, category=category, portrait=portrait, control_codes=self.control_codes, cd_location=cd_offset))
+            trans.append(Translation(target, offset, japanese, english,
+                                     category=category, portrait=portrait,
+                                     control_codes=self.control_codes,
+                                     cd_location=cd_offset, suffix=suffix
+                                     ))
         return trans
 
 

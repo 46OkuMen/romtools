@@ -198,7 +198,7 @@ class Disk:
                filepath,
                path_in_disk='',     # used to be None
                delete_original=True,
-               delete_necessary=True):
+               delete_necessary=False):
         # First, delete the original file in the disk if applicable.
 
         filename = path.basename(filepath)
