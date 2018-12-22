@@ -254,6 +254,8 @@ class Gamefile(object):
         if self.disk:
             if self.disk.pointer_excel:
                 self.pointers = self.disk.pointer_excel.get_pointers(self, pointer_sheet_name)
+            else:
+                self.pointers = None
         else:
             self.pointers = None
 

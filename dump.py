@@ -70,7 +70,7 @@ def sjis_to_hex_string(jp, control_codes={}):
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
     def __init__(self, gamefile, location, japanese, english, category=None, portrait=None, 
-                 suffix=None, cd_location=None, control_codes={}):
+                 suffix=None, cd_location=None, pointer=None, control_codes={}):
         self.location = location
         self.cd_location = cd_location
         self.gamefile = gamefile
@@ -83,6 +83,7 @@ class Translation(object):
         self.category = category
         self.portrait = portrait
         self.suffix = suffix
+        self.pointer = pointer
 
         for cc in control_codes:
             if cc in self.jp_bytestring:
@@ -101,6 +102,37 @@ class Translation(object):
 
     def __repr__(self):
         return "%s %s" % (hex(self.location), self.english)
+
+
+class SegmentPointer:
+    """Trying something different for LA."""
+    def __init__(self, segment, pointer_location, text_location):
+        self.segment = segment
+        self.location = pointer_location
+        self.location_in_segment = pointer_location - segment.start
+        self.text_location = text_location
+        print(hex(self.location_in_segment))
+
+    def edit(self, diff):
+        print("Editing %s with diff %s" % (self, diff))
+        if diff == 0:
+            return None
+        first = hex(self.segment.string[self.location_in_segment])
+        second = hex(self.segment.string[self.location_in_segment+1])
+
+        old_value = unpack(first, second)
+        new_value = old_value + diff
+
+        new_bytes = new_value.to_bytes(length=2, byteorder='little')
+        #print(hex(old_value), hex(new_value))
+        #print((first, second), repr(new_bytes))
+        #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
+        prefix = self.segment.string[:self.location_in_segment]
+        suffix = self.segment.string[self.location_in_segment+2:]
+        self.segment.string = prefix + new_bytes + suffix
+        self.new_text_location = new_value
+        #assert len(self.segment.string) == len(self.gamefile.original_filestring), (hex(len(self.segment.string)), hex(len(self.gamefile.original_filestring)))
+        return new_bytes
 
 
 class BorlandPointer(object):
@@ -138,7 +170,7 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        print("Editing %s with diff %s" % (self, diff))
+        #print("Editing %s with diff %s" % (self, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
         #print(first, second)
@@ -161,7 +193,6 @@ class BorlandPointer(object):
 
     def __repr__(self):
         return "%s pointing to %s" % (hex(self.location), hex(self.new_text_location))
-
 
 class DumpExcel(object):
     """
@@ -222,7 +253,10 @@ class DumpExcel(object):
         try:
             filename_col = header_values.index('File')
         except ValueError:
-            filename_col = None
+            try:
+                filename_col = header_values.index('Filename')
+            except ValueError:
+                filename_col = None
 
         # TODO: These more ad-hoc columns might do better in a dictionary or something.
 
@@ -241,12 +275,23 @@ class DumpExcel(object):
         except ValueError:
             suffix_col = None
 
+        try:
+            pointer_col = header_values.index("Pointer")
+        except ValueError:
+            pointer_col = None
+
+        print("Target is:", target)
 
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
-
+            # Skip rows not for this block and file, if the target is a block
+            try:
+                start, stop = target.start, target.stop
+                if sheet_name and row[filename_col].value != target.gamefile.filename:
+                    continue
             # Skip rows that aren't for this file, if a sheet name is specified
-            if sheet_name and row[filename_col].value != target:
-                continue
+            except AttributeError:
+                if sheet_name and row[filename_col].value != target:
+                    continue
 
             try:
                 offset = int(row[offset_col].value, 16)
@@ -259,11 +304,13 @@ class DumpExcel(object):
             except TypeError:
                 cd_offset = None
 
+
             if offset is None and cd_offset is None:
                 break
 
             try:
                 start, stop = target.start, target.stop
+                #print(start, stop)
                 if use_cd_location:
                     offset = cd_offset
                 if offset is None:
@@ -272,6 +319,7 @@ class DumpExcel(object):
                     continue
             except AttributeError:
                 pass
+            #print("Made it this far")
 
             if row[en_col].value is None and not include_blank:
                 continue
@@ -311,6 +359,14 @@ class DumpExcel(object):
             else:
                 suffix = None
 
+            if pointer_col is not None:
+                if row[pointer_col].value is not None:
+                    pointer = int(row[pointer_col].value, 16)
+                else:
+                    pointer = None
+            else:
+                pointer=None
+
 
             # if isinstance(japanese, long):
             #    # Causes some encoding problems? Trying to skip them for now
@@ -323,7 +379,8 @@ class DumpExcel(object):
             trans.append(Translation(target, offset, japanese, english,
                                      category=category, portrait=portrait,
                                      control_codes=self.control_codes,
-                                     cd_location=cd_offset, suffix=suffix
+                                     cd_location=cd_offset, suffix=suffix,
+                                     pointer=pointer
                                      ))
         return trans
 
