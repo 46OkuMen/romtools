@@ -69,21 +69,29 @@ def sjis_to_hex_string(jp, control_codes={}):
 
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
-    def __init__(self, gamefile, location, japanese, english, category=None, portrait=None, 
-                 suffix=None, cd_location=None, pointer=None, control_codes={}):
+    def __init__(self, gamefile, location, japanese, english, category=None, portrait=None,
+                 prefix=None, suffix=None, command=None, cd_location=None, pointer=None,
+                 control_codes={}):
         self.location = location
         self.cd_location = cd_location
         self.gamefile = gamefile
-        self.japanese = japanese
-        self.english = english
 
-        self.jp_bytestring = japanese
-        self.en_bytestring = english
+        if prefix is not None:
+            self.japanese = prefix + japanese
+            self.english = prefix + english
+        else:
+            self.japanese = japanese
+            self.english = english
+
+        self.jp_bytestring = self.japanese
+        self.en_bytestring = self.english
 
         self.category = category
         self.portrait = portrait
+        self.prefix = prefix
         self.suffix = suffix
         self.pointer = pointer
+        self.command = command
 
         for cc in control_codes:
             if cc in self.jp_bytestring:
@@ -137,7 +145,7 @@ class SegmentPointer:
 
 class BorlandPointer(object):
     """Two-byte, little-endian pointer with a constant added to retrieve location."""
-    def __init__(self, gamefile, pointer_location, text_location):
+    def __init__(self, gamefile, pointer_location, text_location, separator=b'\x00'):
         # A BorlandPointer has only one location. The container OrderDicts have lists of pointers,
         # each having their own location.
         self.gamefile = gamefile
@@ -145,10 +153,11 @@ class BorlandPointer(object):
         self.location = pointer_location
         self.text_location = text_location
         self.new_text_location = text_location
+        self.separator = separator
 
     def text(self):
         gamefile_slice = self.gamefile.filestring[self.text_location:self.text_location+30]
-        gamefile_slice = gamefile_slice.split(b'\x00')[0]
+        gamefile_slice = gamefile_slice.split(self.separator)[0]
         try:
             gamefile_slice = gamefile_slice.decode('shift_jis')
         except:
@@ -170,7 +179,7 @@ class BorlandPointer(object):
 
 
     def edit(self, diff):
-        #print("Editing %s with diff %s" % (self, diff))
+        print("Editing %s in file %s with diff %s" % (self, self.gamefile, diff))
         first = hex(self.gamefile.filestring[self.location])
         second = hex(self.gamefile.filestring[self.location+1])
         #print(first, second)
@@ -276,6 +285,16 @@ class DumpExcel(object):
             suffix_col = None
 
         try:
+            prefix_col = header_values.index('Ctrl Codes')
+        except ValueError:
+            prefix_col = None
+
+        try:
+            command_col = header_values.index("Command")
+        except ValueError:
+            command_col = None
+
+        try:
             pointer_col = header_values.index("Pointer")
         except ValueError:
             pointer_col = None
@@ -344,21 +363,40 @@ class DumpExcel(object):
                         english = english.replace(ch, SPECIAL_CHARACTERS[ch])
                     english = english.encode('shift-jis')
 
+            # Category, for Appareden equipment
             if category_col is not None:
                 category = row[category_col].value
             else:
                 category = None
 
+            # Portrait ID, for Appareden dialogue
             if portrait_col is not None:
                 portrait = row[portrait_col].value
             else:
                 portrait = None
 
+            # Suffix control codes, for Different Realm control code soup
             if suffix_col is not None:
                 suffix = row[suffix_col].value
             else:
                 suffix = None
 
+            # Prefix control codes, for (secret project) control code soup
+            if prefix_col is not None:
+                if row[prefix_col].value:
+                    prefix = row[prefix_col].value.encode('shift-jis')
+                else:
+                    prefix = None
+            else:
+                prefix = None
+
+            # Command context, for (secret project) dialogue context
+            if command_col is not None:
+                command = row[command_col].value
+            else:
+                command = None
+
+            # Pointer column, for... Last Armageddon I think??
             if pointer_col is not None:
                 if row[pointer_col].value is not None:
                     pointer = int(row[pointer_col].value, 16)
@@ -380,6 +418,7 @@ class DumpExcel(object):
                                      category=category, portrait=portrait,
                                      control_codes=self.control_codes,
                                      cd_location=cd_offset, suffix=suffix,
+                                     prefix=prefix, command=command,
                                      pointer=pointer
                                      ))
         return trans

@@ -261,7 +261,10 @@ class Gamefile(object):
 
     def write(self, path_in_disk=None, compression=False, skip_disk=False):
         """Write the new data to an independent file for later inspection."""
-        dest_path = path.join(self.dest_disk.dir, self.filename)
+
+        # Don't double-path a file already in 'patched'
+        if 'patched' not in self.filename:
+            dest_path = path.join(self.dest_disk.dir, self.filename)
 
         with open(dest_path, 'wb') as fileopen:
             fileopen.write(self.filestring)

@@ -30,6 +30,9 @@ def dump(files):
     worksheet.set_column('D:D', 60)
     row = 1
     for filename in files:
+        if filename.endswith('CGX') or filename.endswith('.SEL'):
+            continue
+
         with open(os.path.join(rom_contents_dir, filename), 'rb') as f:
             contents = f.read()
 
