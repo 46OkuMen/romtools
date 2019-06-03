@@ -70,10 +70,11 @@ def sjis_to_hex_string(jp, control_codes={}):
 class Translation(object):
     """Has an offset, a SJIS japanese string, and an ASCII english string."""
     def __init__(self, gamefile, location, japanese, english, category=None, portrait=None,
-                 prefix=None, suffix=None, command=None, cd_location=None, pointer=None,
+                 prefix=None, suffix=None, command=None, cd_location=None, compressed_location=None, pointer=None,
                  control_codes={}):
         self.location = location
         self.cd_location = cd_location
+        self.compressed_location = compressed_location
         self.gamefile = gamefile
 
         if prefix is not None:
@@ -151,13 +152,18 @@ class BorlandPointer(object):
         self.gamefile = gamefile
         self.constant = self.gamefile.pointer_constant
         self.location = pointer_location
+
+        self.original_text_location = text_location
         self.text_location = text_location
-        self.new_text_location = text_location
         self.separator = separator
 
-    def text(self):
+    def text(self, control_codes={}):
         gamefile_slice = self.gamefile.filestring[self.text_location:self.text_location+30]
         gamefile_slice = gamefile_slice.split(self.separator)[0]
+        
+        for cc in control_codes:
+            gamefile_slice = gamefile_slice.replace(cc, control_codes[cc])
+
         try:
             gamefile_slice = gamefile_slice.decode('shift_jis')
         except:
@@ -196,12 +202,15 @@ class BorlandPointer(object):
         prefix = self.gamefile.filestring[:self.location]
         suffix = self.gamefile.filestring[self.location+2:]
         self.gamefile.filestring = prefix + new_bytes + suffix
-        self.new_text_location = new_value
+        self.text_location = new_value
         #assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
         return new_bytes
 
     def __repr__(self):
-        return "%s pointing to %s" % (hex(self.location), hex(self.new_text_location))
+        return "%s pointing to %s" % (hex(self.location), hex(self.text_location))
+
+class PossessionerPointer(BorlandPointer):
+    pass
 
 class DumpExcel(object):
     """
@@ -244,9 +253,16 @@ class DumpExcel(object):
         try:
             offset_col = header_values.index('Offset (FD)')
             cd_offset_col = header_values.index('Offset (CD)')
+            compressed_offset_col = None
         except ValueError:
-            offset_col = header_values.index('Offset')
-            cd_offset_col = None
+            try:
+                offset_col = header_values.index('Offset')
+                cd_offset_col = None
+                compressed_offset_col = header_values.index('Compressed Offset')
+            except ValueError:
+                offset_col = header_values.index('Offset')
+                cd_offset_col = None
+                compressed_offset_col = None
 
         jp_col = header_values.index('Japanese')
 
@@ -299,18 +315,17 @@ class DumpExcel(object):
         except ValueError:
             pointer_col = None
 
-        print("Target is:", target)
-
         for row in list(worksheet.rows)[1:]:  # Skip the first row, it's just labels
             # Skip rows not for this block and file, if the target is a block
-            try:
-                start, stop = target.start, target.stop
-                if sheet_name and row[filename_col].value != target.gamefile.filename:
-                    continue
-            # Skip rows that aren't for this file, if a sheet name is specified
-            except AttributeError:
-                if sheet_name and row[filename_col].value != target:
-                    continue
+            if filename_col is not None:
+                try:
+                    start, stop = target.start, target.stop
+                    if sheet_name and row[filename_col].value != target.gamefile.filename:
+                        continue
+                # Skip rows that aren't for this file, if a sheet name is specified
+                except AttributeError:
+                    if sheet_name and row[filename_col].value != target:
+                        continue
 
             try:
                 offset = int(row[offset_col].value, 16)
@@ -323,8 +338,13 @@ class DumpExcel(object):
             except TypeError:
                 cd_offset = None
 
+            try:
+                compressed_offset = int(row[compressed_offset_col].value, 16)
+            except TypeError:
+                compressed_offset = None
 
-            if offset is None and cd_offset is None:
+
+            if offset is None and cd_offset is None and compressed_offset is None:
                 break
 
             try:
@@ -355,9 +375,10 @@ class DumpExcel(object):
                 try:
                     english = row[en_col].value.encode('shift-jis')
                 except AttributeError:   # Int column values
+                    
                     english = str(row[en_col].value).encode('shift-jis')
                 except UnicodeEncodeError:
-
+                    print(hex(offset))
                     english = row[en_col].value
                     for ch in SPECIAL_CHARACTERS:
                         english = english.replace(ch, SPECIAL_CHARACTERS[ch])
@@ -417,9 +438,9 @@ class DumpExcel(object):
             trans.append(Translation(target, offset, japanese, english,
                                      category=category, portrait=portrait,
                                      control_codes=self.control_codes,
-                                     cd_location=cd_offset, suffix=suffix,
-                                     prefix=prefix, command=command,
-                                     pointer=pointer
+                                     cd_location=cd_offset, compressed_location=compressed_offset,
+                                     suffix=suffix, prefix=prefix, 
+                                     command=command, pointer=pointer
                                      ))
         return trans
 
@@ -443,8 +464,8 @@ class PointerExcel(object):
         self.worksheet.write(0, 1, 'Ptr Loc', header)
         self.worksheet.write(0, 2, 'Points To', header)
         self.worksheet.write(0, 3, 'Comments', header)
-        self.worksheet.set_column('A:A', 7)
-        self.worksheet.set_column('B:B', 7)
+        self.worksheet.set_column('A:A', 9)
+        self.worksheet.set_column('B:B', 9)
         self.worksheet.set_column('C:C', 30)
         self.worksheet.set_column('D:D', 30)
         return self.worksheet
@@ -455,6 +476,7 @@ class PointerExcel(object):
             ws = self.workbook[pointer_sheet_name]
         except KeyError:
             # Sheet does not exist. Return an empty pointers list.
+            print('No pointers for', pointer_sheet_name)
             return pointers
 
         for i, row in enumerate(ws):

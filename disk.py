@@ -253,18 +253,25 @@ class Gamefile(object):
 
         if self.disk:
             if self.disk.pointer_excel:
+                print("ptrshtname: " + pointer_sheet_name)
                 self.pointers = self.disk.pointer_excel.get_pointers(self, pointer_sheet_name)
             else:
                 self.pointers = None
         else:
             self.pointers = None
 
-    def write(self, path_in_disk=None, compression=False, skip_disk=False):
+    def write(self, path_in_disk=None, compression=False, skip_disk=False, dest_path=None):
         """Write the new data to an independent file for later inspection."""
 
         # Don't double-path a file already in 'patched'
         if 'patched' not in self.filename:
             dest_path = path.join(self.dest_disk.dir, self.filename)
+        else:
+            if dest_path is None:
+                dest_path = self.filename
+
+        dest_path = dest_path.replace("original/", "")
+        print("dest_path is", dest_path)
 
         with open(dest_path, 'wb') as fileopen:
             fileopen.write(self.filestring)
@@ -282,25 +289,52 @@ class Gamefile(object):
 
     def incorporate(self, block):
         i = self.filestring.index(block.original_blockstring)
-        #print("Original blockstring found at", i)
+        #print("Original blockstring found at", hex(i))
         self.filestring = self.filestring.replace(block.original_blockstring,
-                                                  block.blockstring)
+                                                  block.blockstring, 1)
 
-    def edit(self, location, data):
+    def edit(self, location, data, diff=False, window_increment=False):
         """Write data to a particular location."""
+
+        #if window_increment:
+        #    if self.filestring[location] == 0xb9:
+        #        print("Probably a bad idea to increment this. Let's try the next byte instead")
+        #        location += 1
+        #    if location == 0x2845c:
+        #        input()
+
+        if diff:
+            old_value = self.filestring[location]
+            new_value = old_value + data
+            self.filestring = (self.filestring[:location] + new_value.to_bytes(1, 'little') +
+                               self.filestring[location+1:])
+            return self.filestring
+
         self.filestring = (self.filestring[:location] + data +
                            self.filestring[location + len(data):])
         return self.filestring
 
-    def edit_pointers_in_range(self, rng, diff):
+    def edit_pointers_in_range(self, rng, diff, allow_double_edits=False):
         """Edit all the pointers between two file offsets."""
+        # Reinserters with poiner reassignments need double edits enabled (Appareden).
         start, stop = rng
-        #print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
         if diff != 0:
-            #print([p for p in range(start+1, stop+1)])
+            #print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
+            #for p in self.pointers:
+                #print(hex(p))
+            #print([(hex(p), p in self.pointers) for p in range(start+1, stop+1)])
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
+                #print(offset)
                 for ptr in self.pointers[offset]:
-                    ptr.edit(diff)
+                    #print("editing", ptr)
+                    print(hex(ptr.text_location), hex(ptr.original_text_location))
+                    if allow_double_edits:
+                        ptr.edit(diff)
+                    else:
+                        if start+1 <= ptr.original_text_location <= stop+1:
+                            ptr.edit(diff)
+                        else:
+                            print("Skipping this one to avoid double-edit")
 
     def __repr__(self):
         return self.filename
