@@ -205,22 +205,14 @@ def generate_config(disks):
         disk = Disk(o, ndc_dir=bin_dir)
         original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
         mkdir(original_folder)
-        files, dirs = disk.listdir('')
-        for di in dirs:
-            disk.extract(di, dest_path=original_folder)
-        for f in files:
-            disk.extract(f, dest_path=original_folder)
+        disk.ndc.extract(o, original_folder)
 
         print("Extracting files from %s..." % patched_disks[disk_index])
         p = patched_disks[disk_index]
         disk = Disk(p, ndc_dir=bin_dir)
         patched_folder = pathsplit(p)[-1].split('.')[0] + "-patched"
         mkdir(patched_folder)
-        files, dirs = disk.listdir('')
-        for di in dirs:
-            disk.extract(di, dest_path=patched_folder)
-        for f in files:
-            disk.extract(f, dest_path=patched_folder)
+        disk.ndc.extract(p, patched_folder)
 
         patched_files = []
 

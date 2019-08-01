@@ -127,9 +127,15 @@ class Disk:
         except AttributeError:
             pass
         subdir = subdir.rstrip('\\')
-        cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
+        # cmd = '"%s" "%s" 0 ' % (self.ndc_path, self.filename)
+        cmd = [
+            self.ndc_path,
+            self.filename,
+            '0'
+        ]
         if subdir:
-            cmd += '"%s"' % subdir
+            cmd.append(subdir)
+            # cmd += '"%s"' % subdir
 
         logging.info(cmd)
         try:
