@@ -261,6 +261,12 @@ class Gamefile(object):
             if self.disk.pointer_excel:
                 print("ptrshtname: " + pointer_sheet_name)
                 self.pointers = self.disk.pointer_excel.get_pointers(self, pointer_sheet_name)
+                #flat_list = [item for sublist in l for item in sublist]
+                self.pointer_locations = []
+                for loc in self.pointers:
+                    for p in self.pointers[loc]:
+                        self.pointer_locations.append(p.location)
+                print(self.pointer_locations)
             else:
                 self.pointers = None
         else:
@@ -324,23 +330,50 @@ class Gamefile(object):
         """Edit all the pointers between two file offsets."""
         # Reinserters with poiner reassignments need double edits enabled (Appareden).
         start, stop = rng
+
         if diff != 0:
             #print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
             #for p in self.pointers:
                 #print(hex(p))
-            #print([(hex(p), p in self.pointers) for p in range(start+1, stop+1)])
+
+            # Need to move pointers if there are any in this range
+            if self.blocks:
+                for offset in [p for p in range(start+1, stop+1) if p in self.pointer_locations]:
+                    print(hex(offset), "needs to be moved")
+                    for p in self.pointers:
+                        for loc in self.pointers[p]:
+                            if loc.location == offset:
+                                #print(loc)
+                                loc.move_pointer_location(diff)
+                                #print(loc)
+                                self.pointer_locations.remove(offset)
+                                self.pointer_locations.append(offset + diff)
+                                #for p in self.pointers:
+                                #    print(hex(p), self.pointers[p])
+
+
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
-                #print(offset)
+                print(offset, self.pointers[offset])
                 for ptr in self.pointers[offset]:
                     #print("editing", ptr)
-                    print(hex(ptr.text_location), hex(ptr.original_text_location))
+                    #print(hex(ptr.text_location), hex(ptr.original_text_location))
                     if allow_double_edits:
                         ptr.edit(diff)
                     else:
                         if start+1 <= ptr.original_text_location <= stop+1:
-                            ptr.edit(diff)
+                            if self.blocks:
+                                block_found = False
+                                for b in self.blocks:
+                                    if b.start <= ptr.location <= b.stop:
+                                        block_found = True
+                                        ptr.edit(diff, block=b)
+                                if not block_found:
+                                    ptr.edit(diff)
+                            else:
+                                ptr.edit(diff)
                         else:
                             print("Skipping this one to avoid double-edit")
+
 
     def __repr__(self):
         return self.filename

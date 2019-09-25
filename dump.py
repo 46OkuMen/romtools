@@ -125,7 +125,7 @@ class SegmentPointer:
         #print(hex(self.location_in_segment))
 
     def edit(self, diff):
-        print("Editing %s with diff %s" % (self, diff))
+        #print("Editing %s with diff %s" % (self, diff))
         if diff == 0:
             return None
         #first = hex(self.segment.string[self.location_in_segment])
@@ -145,6 +145,7 @@ class SegmentPointer:
         #self.segment.string = prefix + new_bytes + suffix
         self.new_text_location = new_value
         #assert len(self.segment.string) == len(self.gamefile.original_filestring), (hex(len(self.segment.string)), hex(len(self.gamefile.original_filestring)))
+
         return new_bytes
 
 
@@ -188,27 +189,55 @@ class BorlandPointer(object):
         return self.location
 
 
-    def edit(self, diff):
-        print("Editing %s in file %s with diff %s" % (self, self.gamefile, diff))
-        first = hex(self.gamefile.filestring[self.location])
-        second = hex(self.gamefile.filestring[self.location+1])
-        #print(first, second)
-        old_value = unpack(first, second)
-        new_value = old_value + diff
+    def edit(self, diff, block=None):
+        print("Editing %s in file %s with diff %s. Block is %s" % (self, self.gamefile, diff, block))
+        if block:
+            # Let's edit the blockstring instead of the filestring
+            #print("The pointer is at %s, the block is (%s, %s)" % (hex(self.location), hex(block.start), hex(block.stop)))
+            b_location = self.location - block.start
+            #print(hex(b_location))
 
-        #print(hex(old_value))
-        #print(diff)
 
-        new_bytes = new_value.to_bytes(length=2, byteorder='little')
-        #print(hex(old_value), hex(new_value))
-        #print((first, second), repr(new_bytes))
-        #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
-        prefix = self.gamefile.filestring[:self.location]
-        suffix = self.gamefile.filestring[self.location+2:]
-        self.gamefile.filestring = prefix + new_bytes + suffix
-        self.text_location = new_value
-        #assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
-        return new_bytes
+            first = hex(block.blockstring[b_location])
+            second = hex(block.blockstring[b_location+1])
+
+            #print(first, second, hex(self.text_location + self.constant))
+
+            old_value = unpack(first, second)
+            new_value = old_value + diff
+
+            new_bytes = new_value.to_bytes(length=2, byteorder='little')
+
+            prefix = block.blockstring[:self.location - block.start]
+            suffix = block.blockstring[self.location - block.start+2:]
+
+            block.blockstring = prefix + new_bytes + suffix
+            self.text_location = new_value + block.start
+
+            return new_bytes
+
+        else:
+            first = hex(self.gamefile.filestring[self.location])
+            second = hex(self.gamefile.filestring[self.location+1])
+            #print(first, second)
+            old_value = unpack(first, second)
+            new_value = old_value + diff
+
+            #print(hex(old_value))
+            #print(diff)
+
+            new_bytes = new_value.to_bytes(length=2, byteorder='little')
+            #print(hex(old_value), hex(new_value))
+            #print((first, second), repr(new_bytes))
+            #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
+            prefix = self.gamefile.filestring[:self.location]
+            suffix = self.gamefile.filestring[self.location+2:]
+            self.gamefile.filestring = prefix + new_bytes + suffix
+            self.text_location = new_value
+
+
+            #assert len(self.gamefile.filestring) == len(self.gamefile.original_filestring), (hex(len(self.gamefile.filestring)), hex(len(self.gamefile.original_filestring)))
+            return new_bytes
 
     def __repr__(self):
         return "%s pointing to %s" % (hex(self.location), hex(self.text_location))
@@ -485,11 +514,15 @@ class PointerExcel(object):
 
     def get_pointers(self, gamefile, pointer_sheet_name):
         pointers = OrderedDict()
+        print(pointer_sheet_name)
         try:
             ws = self.workbook[pointer_sheet_name]
         except KeyError:
             # Sheet does not exist. Return an empty pointers list.
             print('No pointers for', pointer_sheet_name)
+            return pointers
+        except TypeError:
+            print("Workbook object is not subscriptable...?")
             return pointers
 
         for i, row in enumerate(ws):
