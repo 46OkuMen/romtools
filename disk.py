@@ -332,18 +332,19 @@ class Gamefile(object):
         start, stop = rng
 
         if diff != 0:
-            #print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
+            print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
             #for p in self.pointers:
                 #print(hex(p))
 
             # Need to move pointers if there are any in this range
+            # TODO: Does this move pointers multiple times??
             if self.blocks:
                 for offset in [p for p in range(start+1, stop+1) if p in self.pointer_locations]:
                     print(hex(offset), "needs to be moved")
                     for p in self.pointers:
                         for loc in self.pointers[p]:
-                            if loc.location == offset:
-                                #print(loc)
+                            if loc.original_location == offset:
+                                print("moving", loc)
                                 loc.move_pointer_location(diff)
                                 #print(loc)
                                 self.pointer_locations.remove(offset)
@@ -355,7 +356,7 @@ class Gamefile(object):
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
                 print(offset, self.pointers[offset])
                 for ptr in self.pointers[offset]:
-                    #print("editing", ptr)
+                    print("editing", ptr)
                     #print(hex(ptr.text_location), hex(ptr.original_text_location))
                     if allow_double_edits:
                         ptr.edit(diff)

@@ -157,6 +157,7 @@ class BorlandPointer(object):
         self.gamefile = gamefile
         self.constant = self.gamefile.pointer_constant
         self.location = pointer_location
+        self.original_location = pointer_location
 
         self.original_text_location = text_location
         self.text_location = text_location
@@ -227,8 +228,8 @@ class BorlandPointer(object):
             #print(diff)
 
             new_bytes = new_value.to_bytes(length=2, byteorder='little')
-            #print(hex(old_value), hex(new_value))
-            #print((first, second), repr(new_bytes))
+            print(hex(old_value), hex(new_value))
+            print((first, second), repr(new_bytes))
             #new_first, new_second = bytearray(new_bytes[0]), bytearray(new_bytes[1])
             prefix = self.gamefile.filestring[:self.location]
             suffix = self.gamefile.filestring[self.location+2:]
