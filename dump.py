@@ -163,17 +163,24 @@ class BorlandPointer(object):
         self.text_location = text_location
         self.separator = separator
 
+        value_bytes = pack(self.original_text_location - self.constant)
+
+        self.value = "%s %s" % ('{0:02x}'.format(value_bytes[0]), '{0:02x}'.format(value_bytes[1]))
+
     def text(self, control_codes={}):
         gamefile_slice = self.gamefile.filestring[self.text_location:self.text_location+30]
         gamefile_slice = gamefile_slice.split(self.separator)[0]
         
         for cc in control_codes:
-            gamefile_slice = gamefile_slice.replace(cc, control_codes[cc])
+            if cc == b'[BLANK]':
+                continue
+            gamefile_slice = gamefile_slice.replace(control_codes[cc], cc)
 
         try:
             gamefile_slice = gamefile_slice.decode('shift_jis')
         except:
-            gamefile_slice = "weird bytes"
+            helpful_bytes = ' '.join(['{0:02x}'.format(b) for b in gamefile_slice])
+            gamefile_slice = helpful_bytes
         return gamefile_slice
 
     def original_text(self):
@@ -182,7 +189,8 @@ class BorlandPointer(object):
         try:
             gamefile_slice = gamefile_slice.decode('shift_jis')
         except:
-            gamefile_slice = "weird bytes"
+            helpful_bytes = ' '.join(['{0:02x}'.format(b) for b in gamefile_slice])
+            gamefile_slice = helpful_bytes
         return gamefile_slice
 
     def move_pointer_location(self, diff):
@@ -409,7 +417,10 @@ class DumpExcel(object):
             #for sc in SPECIAL_CHARACTERS:
             #    japanese = japanese.replace(sc, SPECIAL_CHARACTERS[sc])
             #japanese = japanese.encode('shift-jis')
-            japanese = row[jp_col].value.encode('shift-jis')
+            if row[jp_col].value is None:
+                japanese = b""
+            else:
+                japanese = row[jp_col].value.encode('shift-jis')
             #print(japanese)
             #print(row[en_col].value)
             if row[en_col].value is None:
@@ -505,8 +516,9 @@ class PointerExcel(object):
         header = self.workbook.add_format(sheet_format)
         self.worksheet.write(0, 0, 'Text Loc', header)
         self.worksheet.write(0, 1, 'Ptr Loc', header)
-        self.worksheet.write(0, 2, 'Points To', header)
-        self.worksheet.write(0, 3, 'Comments', header)
+        self.worksheet.write(0, 2, 'Bytes', header)
+        self.worksheet.write(0, 3, 'Points To', header)
+        self.worksheet.write(0, 4, 'Comments', header)
         self.worksheet.set_column('A:A', 9)
         self.worksheet.set_column('B:B', 9)
         self.worksheet.set_column('C:C', 30)
