@@ -45,7 +45,7 @@ from patch import Patch, PatchChecksumError
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = 'v0.20.1'
+VERSION = 'v0.21.0'
 MS_VERSION = VERSION.lstrip('v') + '.0'
 
 VALID_SILENT_OPTION_IDS = ['delete_all_first']
@@ -79,8 +79,14 @@ class Config:
                         ff['new_file']
                         self.new_files.append(ff)
                     except KeyError:
-                        self.all_files.append(ff)
-                        self.all_filenames.add(ff['name'])
+                        print("About to try ff[optional]")
+                        if 'optional' in ff.keys():
+                            if not ff['optional']:
+                                self.all_filenames.add(ff['name'])
+                        else:
+                            self.all_filenames.add(ff['name'])
+
+
             except KeyError:
                 hdd_files = i['hdd']['files']
                 for hf in hdd_files:
@@ -88,12 +94,20 @@ class Config:
                         hf['new_file']
                         self.new_files.append(hf)
                     except KeyError:
-                        self.all_files.append(hf)
-                        self.all_filenames.add(hf['name'])
+                        if 'optional' in hf.keys():
+                            if not hf['optional']:
+                                self.all_filenames.add(hf['name'])
+                        else:
+                            self.all_filenames.add(hf['name'])
+
             try:
                 hdd_files = i['hdd']['files']
                 for hf in hdd_files:
-                    self.hdd_filenames.add(hf['name'])
+                    if 'optional' in hf.keys():
+                        if not hf['optional']:
+                            self.hdd_filenames.add(hf['name'])
+                    else:
+                        self.hdd_filenames.add(hf['name'])
             except KeyError:
                 pass
 
@@ -205,6 +219,10 @@ def generate_config(disks):
         disk = Disk(o, ndc_dir=bin_dir)
         original_folder = pathsplit(o)[-1].split('.')[0] + "-original"
         mkdir(original_folder)
+
+        # TODO: It seems like extract() won't work here. May need to do something silly with walk(), or list()?
+        # (Or might just need to investigate further with ndcpy)
+        # NDC itself should work fine, but maybe walk() doesn't look at subdirs when called with extract()?
         disk.ndc.extract(o, original_folder)
 
         print("Extracting files from %s..." % patched_disks[disk_index])
@@ -320,6 +338,7 @@ def select_config():
             Config(c)
             good_configs.append(c)
         except json.decoder.JSONDecodeError:
+            print("Invalid config")
             logging.info("Config %s is invalid, and was skipped" % c)
 
     if len(good_configs) == 0:
@@ -424,9 +443,18 @@ def patch_images(selected_images, cfg):
                 try:
                     DiskImage.extract(f['name'], path_in_disk)
                 except FileNotFoundError:
-                    print("Error. Restoring from backup...")
-                    DiskImage.restore_from_backup()
-                    message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
+                    print(f)
+                    if 'optional' in f.keys():
+                        if f['optional']:
+                            print("Could not extract %s but it was optional. Continuing..." % f['name'])
+                        else:
+                            print("Error. Restoring from backup...")
+                            DiskImage.restore_from_backup()
+                            message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
+                    else:
+                        print("Error. Restoring from backup...")
+                        DiskImage.restore_from_backup()
+                        message_wait_close("Couldn't access the disk. Make sure it is not open in EditDisk/ND, and try again.")
                 extracted_file_path = pathjoin(disk_directory, f['name'])
                 copyfile(extracted_file_path, extracted_file_path + '_edited')
 
@@ -452,21 +480,33 @@ def patch_images(selected_images, cfg):
                         edited=extracted_file_path + '_edited',
                         xdelta_dir=bin_dir)
                     try:
-                        print("Patching %s..." % f['name'])
+                        print("Patching %s with patch (%i) %s..." % (f['name'], i, patch))
                         patchfile.apply()
                         patch_worked = True
                     except PatchChecksumError:
+                        pass
                         if i < len(patch_list) - 1:
-                            print("Trying backup patch for %s..." % f['name'])
+                            print("Patch didn't work, trying next patch.")
                 if not patch_worked and j < len(paths_in_disk) - 1:
                     print("Trying another file with the name %s..." % f['name'])
 
             if not patch_worked:
-                print("Error. Restoring from backup...")
-                DiskImage.restore_from_backup()
-                remove(extracted_file_path)
-                remove(extracted_file_path + '_edited')
-                message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+                if 'optional' in f.keys():
+                    if f['optional']:
+                        print("Couldn't patch %s, but it was optional." % f['name'])
+                        continue
+                    else:
+                        print("Error. Restoring from backup...")
+                        DiskImage.restore_from_backup()
+                        remove(extracted_file_path)
+                        remove(extracted_file_path + '_edited')
+                        message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
+                else:
+                    print("Error. Restoring from backup...")
+                    DiskImage.restore_from_backup()
+                    remove(extracted_file_path)
+                    remove(extracted_file_path + '_edited')
+                    message_wait_close("Patch checksum error. This disk is not compatible with this patch, or is already patched.")
 
             copyfile(extracted_file_path + '_edited', extracted_file_path)
             if not options['delete_all_first']:
@@ -508,9 +548,7 @@ def patch_images(selected_images, cfg):
 
 
 if __name__ == '__main__':
-
-
-    # Set the current directory to the magical pyinstaller folder if necessary.
+    # Set the current directory to the working directory used by PyInstaller apps, if necessary.
     exe_dir = getcwd()
     if hasattr(sys, '_MEIPASS'):
         chdir(sys._MEIPASS)
@@ -527,7 +565,9 @@ if __name__ == '__main__':
     # Setup log
     logging.basicConfig(filename=pathjoin(exe_dir, 'pachy98-log.txt'),
                         level=logging.INFO)
-    sys.excepthook = except_handler
+
+    # TODO: Want to avoid doing this if generating a config, or if 
+    #sys.excepthook = except_handler
     logging.info("Log started")
 
     print("Pachy98 %s by 46 OkuMen" % VERSION)
@@ -660,7 +700,7 @@ if __name__ == '__main__':
                 patch_plain_files = all([a in listdir(pathjoin(exe_dir, subdir)) for a in cfg.all_filenames])
                 if patch_plain_files:
                     plain_files_dir = subdir
-                    print(subdir)
+                    #print(subdir)
                     break
 
     if len([i for i in selected_images if i is not None]) not in (1, expected_image_length) and not patch_plain_files:
@@ -765,21 +805,30 @@ if __name__ == '__main__':
             else:
                 patch_list = [f['patch']]
 
+            # NOTE: In a failsafelist, at least one patch has to work - not just the final one
             patch_worked = False
             for i, patch in enumerate(patch_list):
                 patch_filepath = pathjoin(exe_dir, 'patch', patch)
                 patchfile = Patch(f_path, patch_filepath, edited=f['name'] + '_edited', xdelta_dir=bin_dir)
                 try:
-                    print("Patching %s..." % f['name'])
+                    print("Patching %s with patch (%i) %s..." % (f['name'], i, patch))
                     patchfile.apply()
                     patch_worked = True
                 except PatchChecksumError:
                     if i < len(patch_list):
-                        print("Trying failsafe patch for %s..." % f['name'])
+                        print("Patch didn't work, trying next patch.")
 
+            # If zero of the patches worked, and the file is not marked as "optional"
             if not patch_worked:
-                remove(f['name'] + '_edited')
-                message_wait_close("Patch checksum error. This file is not compatible with this patch, or is already patched.")
+                if 'optional' in f.keys():
+                    if f['optional']:
+                          print("Skipped patching %s (an optional file)." % f['name']);
+                    else:
+                        remove(f['name'] + '_edited')
+                        message_wait_close("Patch checksum error. This file is not compatible with this patch, or is already patched.")
+                else:
+                    remove(f['name'] + '_edited')
+                    message_wait_close("Patch checksum error. This file is not compatible with this patch, or is already patched.")
 
             try:
                 copyfile(f['name'] + '_edited', f_path)

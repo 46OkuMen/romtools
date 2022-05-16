@@ -226,6 +226,7 @@ class BorlandPointer(object):
             return new_bytes
 
         else:
+            print("Filestring length is", hex(len(self.gamefile.filestring)))
             first = hex(self.gamefile.filestring[self.location])
             second = hex(self.gamefile.filestring[self.location+1])
             #print(first, second)
@@ -556,85 +557,3 @@ class PointerExcel(object):
 
     def close(self):
         self.workbook.close()
-"""
-class DumpGoogleSheet(object):
-"""
-       # A dump in a Google Sheet, with methods to update various columns
-"""
-    def __init__(self, filename):
-        gc = pygsheets.authorize(outh_file='client_secret_1010652634407-2d4gjkn44a5020jg6tl4hqjld1130fjs.apps.googleusercontent.com.json', no_cache=True)
-        self.workbook = gc.open(filename)
-
-def update_google_sheets(local_filename, google_filename):
-    local = DumpExcel(local_filename)
-    google = DumpGoogleSheet(google_filename)
-
-    for name in local.workbook.get_sheet_names():
-        local_worksheet = local.workbook.get_sheet_by_name(name)
-
-        first_row = list(local_worksheet.rows)[0]
-        header_values = [t.value for t in first_row]
-
-        offset_col = header_values.index('Offset')
-        jp_col = header_values.index('Japanese')
-        # TODO: Probably want to update these too
-
-        original_en_col = header_values.index('English (kuoushi)')
-        ingame_en_col = header_values.index('English (Ingame)')
-
-        google_worksheet = google.workbook.worksheet_by_title(name)
-
-        google_values = google_worksheet.get_all_values(returnas='cell', include_empty=False)
-
-
-        #print(google_values)
-
-        # TODO: Propagate a deleted row from local to Google sheet; not supported yet
-
-        # TODO: Sys dump has one less row in google sheet than local, but msg dump has same row count!
-        print(len(google_values)-1, local_worksheet.max_row)
-        assert len(google_values)-1 <= local_worksheet.max_row, "Row has been deleted, update manually"
-        if len(google_values)-1 < local_worksheet.max_row:
-            print("Row added to local sheet, inserting that in google sheet")
-            for i, row in enumerate(local_worksheet):
-                google_offset = google_values[i][0].value
-                local_offset = row[0].value
-                if google_offset != local_offset:
-                    vals_list = [cell.value for cell in row]
-                    for cell_i in range(len(vals_list)):
-                        if vals_list[cell_i] is None:
-                            vals_list[cell_i] = ''
-                    google_worksheet.insert_rows(row=i, number=1, values=vals_list)
-
-
-        # TODO: Want to update each direction separately...
-        for en_col in (original_en_col, ingame_en_col):
-
-            for i, row in enumerate(local_worksheet):
-                try:
-                    google_val = google_values[i][en_col].value
-                except IndexError:
-                    # Likely to be a sheet that doesn't have any values
-                    print("Skipping this sheet")
-                    break
-                local_val = row[en_col].value
-
-                if google_val is None:
-                    google_val = ''
-                if local_val is None:
-                    local_val = ''
-
-                #print(repr(google_val), repr(local_val))
-
-                if str(google_val) != str(local_val):
-                    # If ingame col is different, sync local changes to google sheet
-                    if en_col == ingame_en_col:
-                        label = google_values[i][en_col].label
-                        google_worksheet.update_cell(label, local_val)
-                    # If the kuoushi col has changed, sync google changes to local sheet
-                    elif en_col == original_en_col:
-                        cell = local_worksheet.cell(row=i+1, column=en_col+1)
-                        cell.value = google_val
-
-    local.workbook.save(local_filename)
-"""

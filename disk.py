@@ -244,6 +244,9 @@ class Gamefile(object):
         self.disk = disk
         self.dest_disk = dest_disk
 
+        # TODO: Not sure where self.blocks gets set... but it should exist
+        self.blocks = []
+
         if pointer_sheet_name is None:
             pointer_sheet_name = self.filename
 
@@ -329,34 +332,41 @@ class Gamefile(object):
     def edit_pointers_in_range(self, rng, diff, allow_double_edits=False):
         """Edit all the pointers between two file offsets."""
         # Reinserters with poiner reassignments need double edits enabled (Appareden).
+        #print("Called edit_pointers_in_range", self.filename, rng, diff)
         start, stop = rng
 
         if diff != 0:
             print("Editing pointers in range %s %s with diff %s" % (hex(start), hex(stop), hex(diff)))
+            #print(self.pointers)
             #for p in self.pointers:
                 #print(hex(p))
 
             # Need to move pointers if there are any in this range
-            # TODO: Does this move pointers multiple times??
+
             if self.blocks:
+                #print([hex(p) for p in range(start+1, stop+1)])
+                #print([hex(p) for p in self.pointer_locations])
                 for offset in [p for p in range(start+1, stop+1) if p in self.pointer_locations]:
                     print(hex(offset), "needs to be moved")
                     for p in self.pointers:
                         for loc in self.pointers[p]:
                             if loc.original_location == offset:
-                                print("moving", loc)
+                                print("moving %s -> %s" % (hex(loc.location), hex(loc.location + diff)))
                                 loc.move_pointer_location(diff)
                                 #print(loc)
                                 self.pointer_locations.remove(offset)
                                 self.pointer_locations.append(offset + diff)
                                 #for p in self.pointers:
                                 #    print(hex(p), self.pointers[p])
+            else:
+                # Don't need to move pointers if there's no block for them to be in
+                pass
 
 
             for offset in [p for p in range(start+1, stop+1) if p in self.pointers]:
                 print(offset, self.pointers[offset])
                 for ptr in self.pointers[offset]:
-                    print("editing", ptr)
+                    print("editing %s (originally %s)" % (ptr, hex(ptr.original_location)))
                     #print(hex(ptr.text_location), hex(ptr.original_text_location))
                     if allow_double_edits:
                         ptr.edit(diff)
@@ -365,7 +375,7 @@ class Gamefile(object):
                             if self.blocks:
                                 block_found = False
                                 for b in self.blocks:
-                                    if b.start <= ptr.location <= b.stop:
+                                    if b.start <= ptr.original_location <= b.stop:
                                         block_found = True
                                         ptr.edit(diff, block=b)
                                 if not block_found:
